@@ -21,7 +21,7 @@ library(ggplot2)
 library(viridis)
 library(knitr)
 library(svglite)
-source('scripts/Olival_fit_gam.R')
+source('scripts/Olival-functions.R')
 
 olival.db <- readRDS("data/Olival-et-al-database.rds")
 hosts <- olival.db$hosts

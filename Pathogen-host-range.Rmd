@@ -265,6 +265,9 @@ bacteria.df$vector.borne <- bacteria.unique[bacteria.names, "VectorBorne"]
 
 ## Figure 1
 
+![](figures/Figure-1-schematic-overview.png)
+
+
 This is the schematic overview figure, and was made manually in Inkscape using images from FlatIcon (see references in main manuscript).
 
 ## Figure 2
@@ -338,6 +341,11 @@ p.histogram.figure.2
 dev.off()
 ```
 
+
+### Subsampling to non-human hosts
+
+To examine whether sampling bias could be influencing this result, we look at the effect of subsampling to only non-human hosts (both domestic and non-domestic). 
+
 ```{r Figure_PHB_histogram_subsample_function, cache=cachedata}
 options(warn=-1) # Turn off warnings
 # Function to plot PHB histogram for a given dataset
@@ -396,7 +404,6 @@ plotHistogram <- function(association_dataset, cophenetic_distances){
 ```
 
 
-### Subsampling to non-human hosts
 ```{r Figure_PHB_domestic, cache=cachedata}
 options(warn=-1) # Turn off warnings
 pathogen_vs_host_db_domestic <- pathogen_vs_host_db[which(pathogen_vs_host_db$Domestic=="Yes" & pathogen_vs_host_db$HostSpeciesPHB!="Homosapiens"),]
@@ -419,7 +426,7 @@ cowplot::plot_grid(p.PHB.domestic+ggtitle("Domestic (n=2,270)"), p.PHB.nondomest
 
 ## Figure 3
 
-We want to produce an analagous version of Figure 1 from Olival et al. (2017) with our data. 
+We produce an analagous version of Figure 1 from Olival et al. (2017) based on our dataset. Ordering of mammal orders is the same to allow easy comparison with their viral figure. 
 
 ```{r viral_richness_per_host_order, cache=cachedata}
 options(warn=-1) # Turn off warnings
@@ -543,7 +550,7 @@ cor.test(mammal.bacterial.viral.richness$nBacteria, mammal.bacterial.viral.richn
 
 ## Figure 4
 
-First we do GAMs for host traits which predict viral and bacterial richness.
+We fit generalized additive models (GAMs) for host traits which predict viral and bacterial richness. To do this we use a dataset of host traits collected by Olival et al. to predict pathogen richness (bacterial and viral) per species. These host traits included a phylogenetic eigenvector regression (PVR) of body mass. As Olival et al. collected information for an analysis of only viral pathogens, we found there was better overlap for viruses in our dataset (n=613 host wild mammals) than for bacteria (n=274). 
 
 ```{r GAMs, cache=cachedata, message=FALSE}
 options(warn=-1) # Turn off warnings
@@ -554,7 +561,7 @@ allplots
 
 ## Figure 5
 
-Then GAMs for predicting zoonotic potential.
+We also fit GAMs to predict zoonotic potential. For bacteria, GAMs could include terms for host range (PHB_mean, PHB_median, or PHB_max), research effort (NCBI PubMed, Nucleotide, or SRA results), motility, sporulation, being vector-borne, oxygen requirements, and Gram stain. We excluded cellular lifestyle (intra/extracellular) as a predictor due to low numbers, and excluded pathogens of unknown motility (n=50) or sporulation (n=17). For viruses, GAMs could include terms for host range, research effort, genome size (number of proteins and length), being vector-borne, and genome type (Baltimore classification). We excluded pathogens with unknown genome size (n=253). We observed structure in some partial effect residuals in the best-fit GAMs: research effort for bacteria (Figure 6b) and host range for viruses (Figure 6d). This structure was driven by pathogen taxonomy, with families (orders) for bacteria (viruses) having different zoonotic potential; e.g. the Staphylococcaceae contain a high proportion of generalists. Attempts to include taxonomy as a categorical predictor produced best fit models which excluded all lifestyle factors (not shown), although host range and research effort were still the strongest predictors. 
 
 ```{r GAMs-zoonotic-potential, cache=cachedata, message=FALSE}
 detachAllPackages <- function() {
@@ -608,7 +615,16 @@ allplots
 
 ## Figure 6
 
-We make a plot of the host switching for bacteria and viruses together (left panel of figure). We restrict 
+We make a plot of the host switching for bacteria and viruses together (left panel of figure). 
+
+If we denote the set of pathogens seen at least once in a host taxon a as p_a (where the taxon could be a species, genus, family etc.), we define the fraction of shared pathogens between two taxa a and b as 
+
+```{latex}
+s_(a,b) = \frac{| p_{a} \union p_b |}{p_{a} \intersection p_{b}}
+```
+
+Note that this definition is symmetric in a, b. It can therefore be compared with the (mean) phylogenetic distance between taxa using a Mantel test to determine the correlation. 
+
 
 ```{r Figure_distance_shared_pathogens_scatter, cache=cachedata}
 hostShiftingResultsOrder <- function(type="Bacteria", min.rep=0){
@@ -1082,6 +1098,7 @@ dev.off()
 How do genome GC content and size vary in specialist vs. generalist pathogens?
 
 ```{r Figure_genome_GC_size_specialist_generalist, cache=cachedata}
+options(warn=-1)
 bacteria.unique <- pathogen_vs_host_db[which(pathogen_vs_host_db$Type=="Bacteria" & !duplicated(pathogen_vs_host_db$Species)),]
 rownames(bacteria.unique) <- bacteria.unique$Species
 bacteria.unique$PHB <- sapply(bacteria.unique$Species, function(x) PHB(x, m=pathogen_vs_host_db))
@@ -1412,7 +1429,12 @@ kable(table(unique_pathogens$generalist.narrow.broad, unique_pathogens$Type))
 
 ## Table 3
 
-This is a summary of the best-fit GAMs (see `intermediates/*rds') for host traits which predict viral/bacterial richness (Figure 4) and pathogen traits which predict zoonotic potential (Figure 5).
+This is a summary of the best-fit GAMs (see `intermediates/*rds') for host traits which predict viral/bacterial richness (Figure 4) and pathogen traits which predict zoonotic potential (Figure 5). This table was manually edited and prettified in Excel but contains all the same information as in the manuscript. 
+
+```{r GAM_tables, cache=cachedata}
+options(warn=-1)
+source('scripts/08-tables-GAMs.R')
+```
 
 
 ## Supplementary Table 1

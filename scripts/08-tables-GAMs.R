@@ -1,9 +1,24 @@
+# This code was originally written by Olival et al. (2017)
+# and was adapted (lightly) by Liam Shaw 2019 (liam.philip.shaw at gmail dot com)
+# for this project.
+
+# See: https://zenodo.org/record/807517 for the original code repository this code was sourced from
+
+# This file is based on: scripts/11-make-ExtendedTable01-models.R
+# from that repository
+
+# I am grateful to Olival et al. for making their original code available under an MIT License, which also applies here. 
+# https://opensource.org/licenses/MIT
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 library(mgcv)
 library(stringi)
 library(dplyr)
 library(purrr)
 library(officer)
-source('scripts/Olival_fit_gam.R')
+source('scripts/Olival-functions.R')
 
 top_models <- lapply(c("intermediates/all_bacteria_models.rds", "intermediates//all_viruses_models.rds", "intermediates/zoonotic-GAM-fits-bacteria.rds", "intermediates/zoonotic-GAM-fits-virus.rds"), function(mods) {
   readRDS(mods)$model[[1]]

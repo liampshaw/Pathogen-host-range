@@ -25,7 +25,7 @@ library(svglite)
 library(mgcv)
 library(magrittr)
 set.seed(0)
-source('scripts/Olival_fit_gam.R')
+source('scripts/Olival-functions.R')
 
 SHOW_DEV_EXPL = FALSE
 
