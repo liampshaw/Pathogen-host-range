@@ -10,7 +10,7 @@
 
 **Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux (\* co-first authors)
 
-This is a supplementary R Markdown workbook (Supplementary Text 1) containing code to reproduce all main figures and analyses in the associated paper, as well as several supplementary files. Code can be shown or hidden overall (see top right) or for individual sections. 
+This is a supplementary R Markdown workbook (Supplementary Text 1) containing code to reproduce all main figures and analyses in the associated paper, as well as several supplementary files. For more information on the dataset collection methods and analysis, please see the associated preprint. 
 
 Code can be altered to change any of the figures.  Some explanatory text is provided, but not much. Any questions can be addressed via email (liam.philip.shaw@gmail.com). 
 
