@@ -1,8 +1,6 @@
 ---
 title: The phylogenetic range of bacterial and viral pathogens of vertebrates
-author: Liam Shaw 
 output:
-  pdf_document: default
   html_document: 
     css: custom.css
     fig_height: 8
@@ -10,6 +8,7 @@ output:
     toc: true  
     fig_caption: true
     code_folding: hide
+  pdf_document: default
 editor_options: 
   chunk_output_type: console
 ---
@@ -18,9 +17,7 @@ editor_options:
 **Paper**: The phylogenetic range of bacterial and viral pathogens of vertebrates
 preprint: https://doi.org/10.1101/670315
 
-**Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux
-
-\* Co-first author
+**Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux (\* co-first authors)
 
 # Introduction
 
@@ -38,15 +35,21 @@ Unless otherwise stated, data related to viruses is plotted in <span style="colo
 
 This mainly applies to several scripts in the `scripts' directory relating to the fitting and plotting of generalized additive models (GAMs) -- more information is included where appropriate. All code here is also made available under an MIT License. 
 
+
 # Preliminary steps
 
-The following code chunk contains library requirements and defines two useful functions:
+This section contains library requirements and defines two useful functions:
 
 * PHB (Phylogenetic Host Breadth) - function of the cophenetic distance between the hosts of a pathogen species (default: mean).
 * THR (Taxonomic Host Range) - function of the cophenetic distance between all hosts of a particular taxonomic group (default: mean). 
 
 ```{r Setup, echo=FALSE, message=FALSE, cache=TRUE}
 options(warn=-1) # Turn off warnings
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\n \\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
 # Libraries
 library(broman)
 library(ape)
@@ -145,9 +148,6 @@ The number of host orders is `r n.host.orders`.
 
 The medium maximum inter-host distance within an order is `r require(broman); myround(median.inter.host.distance.order, 3)`. 
 
-#### Proportion of specialists
-
-
 
 #### Vector-borne
 
@@ -160,10 +160,9 @@ chisq.test(vector.tab)
 ```
 
 
+#### Removing humans from the database
 
-## Removing humans from the database
-
-While humans are important, we want to think about pathogen range etc. after removing them from the database and the host tree. We recalculate PHB after doing this. 
+We want to think about pathogen range etc. after removing them from the database and the host tree. We recalculate PHB after doing this. 
 
 ```{r Remove_humans, cache=cachedata}
 # Removing humans from database
@@ -183,7 +182,7 @@ virus.no.humans.phbs.range <- as.numeric(sapply(virus.names, function(x) PHB(x, 
 
 ```
 
-## Summary statistics
+#### Summary statistics
 
 It is useful to have data frames with the summary statistics for each pathogen species (i.e. one row per pathogen), calculated from the pathogen-host association database (one row per association). We separate this into viruses and bacteria, as we treat them separately. 
 
@@ -271,7 +270,7 @@ This is the schematic overview figure, and was made manually in Inkscape using i
 
 We get a dataset of just the unique pathogens and then calculate the mean phylogenetic host breadth (PHB) of each pathogen. We then use this to plot a histogram.
 
-```{r Figure_PHB_histogram, cache=cachedata}
+```{r Figure_PHB_histogram, results='show', cache=cachedata}
 # Get unique pathogens
 unique_pathogens <- data.frame(Species=pathogen_vs_host_db[!duplicated(pathogen_vs_host_db$Species),"Species"],
                           Type=pathogen_vs_host_db[!duplicated(pathogen_vs_host_db$Species),"Type"])
