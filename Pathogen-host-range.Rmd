@@ -189,6 +189,7 @@ It is useful to have data frames with the summary statistics for each pathogen s
 ### Viruses
 
 ```{r Virus_data_frame, results=FALSE, cache=cachedata}
+options(warn=-1) # Turn off warnings
 virus.names <- names(sort(table(virus$Species), decreasing=TRUE))
 n.hosts <- as.numeric(sort(table(virus$Species), decreasing=TRUE))
 virus.phbs <- sapply(virus.names, function(x) PHB(x))
@@ -271,6 +272,7 @@ This is the schematic overview figure, and was made manually in Inkscape using i
 We get a dataset of just the unique pathogens and then calculate the mean phylogenetic host breadth (PHB) of each pathogen. We then use this to plot a histogram.
 
 ```{r Figure_PHB_histogram, results='show', cache=cachedata}
+options(warn=-1) # Turn off warnings
 # Get unique pathogens
 unique_pathogens <- data.frame(Species=pathogen_vs_host_db[!duplicated(pathogen_vs_host_db$Species),"Species"],
                           Type=pathogen_vs_host_db[!duplicated(pathogen_vs_host_db$Species),"Type"])
@@ -336,14 +338,91 @@ p.histogram.figure.2
 dev.off()
 ```
 
+```{r Figure_PHB_histogram_subsample_function, cache=cachedata}
+options(warn=-1) # Turn off warnings
+# Function to plot PHB histogram for a given dataset
+plotHistogram <- function(association_dataset, cophenetic_distances){
+  # Get unique pathogens
+  unique_pathogens.subsampled <- data.frame(Species=association_dataset[!duplicated(association_dataset$Species),"Species"],
+                                            Type=association_dataset[!duplicated(association_dataset$Species),"Type"])
+  unique_pathogens.subsampled$Species <- as.character(unique_pathogens.subsampled$Species)
+  # Calculate PHB
+  unique_pathogens.subsampled$PHB <- sapply(unique_pathogens.subsampled$Species, function(x) PHB(x, cophenetic.matrix = cophenetic_distances, m = association_dataset))
+  unique_pathogens.subsampled$PHB.median <- sapply(unique_pathogens.subsampled$Species, function(x) PHB(x, cophenetic.matrix = cophenetic_distances, m = association_dataset, FUN=median))
+  unique_pathogens.subsampled$PHB.max <- sapply(unique_pathogens.subsampled$Species, function(x) PHB(x, cophenetic.matrix = cophenetic_distances, m = association_dataset, FUN = max))
+  
+  
+  # Number of total hosts
+  host_species_counts <- data.frame(association_dataset %>% group_by(Species) %>% summarise(count=length(HostSpeciesPHB)))
+  rownames(host_species_counts) <- host_species_counts$Species
+  unique_pathogens.subsampled$N.hosts <- host_species_counts[unique_pathogens.subsampled$Species,"count"]
+  
+  # Gather data
+  pathogen_range_histo <-  data.frame(phb = 1:50/30-0.03, 
+                                       bacteria = hist(filter(unique_pathogens.subsampled, Type == "Bacteria")$PHB, breaks = 0:50/30, freq = TRUE, plot = FALSE)$count,
+                                       virus = hist(filter(unique_pathogens.subsampled, Type == "Virus")$PHB, breaks = 0:50/30, freq = TRUE, plot = FALSE)$count) %>% pivot_longer(cols=c("bacteria", "virus"), names_to = "type", values_to = "count")
+  pathogen_range_histo$count.norm <- pathogen_range_histo$count/sum(pathogen_range_histo$count)
+  pathogen_range_histo$type <- ifelse(pathogen_range_histo$type=="bacteria", "Bacteria", "Virus")
+  
+  pathogen_range_histo.total <- data.frame(pathogen_range_histo %>% group_by(phb) %>% summarise(count=sum(count)))
+  # Pathogen range histogram, excluding zeros
+  pathogen_range_histo$type <- ordered(pathogen_range_histo$type, levels=c("Virus", "Bacteria"))
+  levels(pathogen_range_histo$type) <- c("(a) Viruses", "(b) Bacteria")
+  p.histogram <- ggplot(pathogen_range_histo, aes(fill=type, x=phb, y=count))+
+    geom_histogram(colour="black", aes(fill="All"), data=pathogen_range_histo.total, stat="identity", alpha=0.4)+
+    ylim(c(0,75))+geom_bar(stat="identity")+
+    facet_wrap(~type, ncol=1)+
+    scale_fill_manual(values=c("#de2d26", "#252525", "#f7f7f7"))+
+    xlim(c(0,1))+theme_basic()+
+    xlab("Mean PHB")+
+    ylab("Frequency")+
+    labs(fill="Pathogen type")+
+    geom_vline(xintercept = median(filter(unique_pathogens.subsampled, Type == "Bacteria")$PHB[which(filter(unique_pathogens.subsampled, Type == "Bacteria")$PHB!=0)]), 
+               colour="white", size=2, alpha=0.8)+
+    geom_vline(xintercept = median(filter(unique_pathogens.subsampled, Type == "Bacteria")$PHB[which(filter(unique_pathogens.subsampled, Type == "Bacteria")$PHB!=0)]), 
+               colour="black", size=1, linetype="dashed")+ # Second to make colour clear
+    geom_vline(xintercept = median(filter(unique_pathogens.subsampled, Type == "Virus")$PHB[which(filter(unique_pathogens.subsampled, Type == "Virus")$PHB!=0)]), 
+               colour="white", size=2, alpha=0.8)+
+    geom_vline(xintercept = median(filter(unique_pathogens.subsampled, Type == "Virus")$PHB[which(filter(unique_pathogens.subsampled, Type == "Virus")$PHB!=0)]), 
+               colour="red", size=1, linetype="dashed")+ # Second to make colour clear
+    theme(axis.text=element_text(size=16),
+          legend.text =element_text(colour="black", size=16),
+          legend.title=element_text(colour="black", size=18),
+          strip.text.x=element_text(colour="black", size=22),
+          axis.title=element_text(colour="black", size=22))+
+    theme(legend.position="none")
+  return(p.histogram)
+}
+```
+
+
+### Subsampling to non-human hosts
+```{r Figure_PHB_domestic, cache=cachedata}
+options(warn=-1) # Turn off warnings
+pathogen_vs_host_db_domestic <- pathogen_vs_host_db[which(pathogen_vs_host_db$Domestic=="Yes" & pathogen_vs_host_db$HostSpeciesPHB!="Homosapiens"),]
+cophenetic_domestic <- cophenetic_matrix[which(rownames(cophenetic_matrix) %in% pathogen_vs_host_db_domestic$HostSpeciesPHB), which(colnames(cophenetic_matrix) %in% pathogen_vs_host_db_domestic$HostSpeciesPHB)]
+p.PHB.domestic <- plotHistogram(pathogen_vs_host_db_domestic, cophenetic_domestic)
+```
+
+
+```{r Figure_PHB_non_domestic, cache=cachedata}
+options(warn=-1) # Turn off warnings
+pathogen_vs_host_db_non_domestic <- pathogen_vs_host_db[which(pathogen_vs_host_db$Domestic=="No" & pathogen_vs_host_db$HostSpeciesPHB!="Homosapiens"),]
+cophenetic_non_domestic <- cophenetic_matrix[which(rownames(cophenetic_matrix) %in% pathogen_vs_host_db_non_domestic$HostSpeciesPHB), which(colnames(cophenetic_matrix) %in% pathogen_vs_host_db_non_domestic$HostSpeciesPHB)]
+p.PHB.nondomestic <- plotHistogram(pathogen_vs_host_db_non_domestic, cophenetic_non_domestic)
+```
+
+```{r Figure_PHB_subsampling_combine, cache=cachedata}
+cowplot::plot_grid(p.PHB.domestic+ggtitle("Domestic (n=2,270)"), p.PHB.nondomestic + ggtitle("Non-domestic (n=5,898)"))
+```
+
 
 ## Figure 3
 
 We want to produce an analagous version of Figure 1 from Olival et al. (2017) with our data. 
 
 ```{r viral_richness_per_host_order, cache=cachedata}
-library(dplyr)
-library(ggplot2)
+options(warn=-1) # Turn off warnings
 
 # First make a dataset per order of mammals 
 # Note that we have Artiodactyla where Olival et al. have "Cetartiodactyla" - have changed this
@@ -444,7 +523,9 @@ png(file="figures/Figure-3-richness-per-species.png", width=2000, height=900)
 cowplot::plot_grid(p.virus.zoonotic, p.virus.richness,
                    p.bacteria.zoonotic, p.bacteria.richness, nrow=1)
 dev.off()
-
+# Show plot
+cowplot::plot_grid(p.virus.zoonotic, p.virus.richness,
+                   p.bacteria.zoonotic, p.bacteria.richness, nrow=1)
 # Correlation of bacterial and viral richness per host order
 boxplot.df.bacteria <- boxplot.df[which(boxplot.df$Type=="Bacteria"),]
 boxplot.df.virus <- boxplot.df[which(boxplot.df$Type=="Virus"),]
@@ -464,9 +545,11 @@ cor.test(mammal.bacterial.viral.richness$nBacteria, mammal.bacterial.viral.richn
 
 First we do GAMs for host traits which predict viral and bacterial richness.
 
-```{r GAMs, cache=cachedata}
+```{r GAMs, cache=cachedata, message=FALSE}
+options(warn=-1) # Turn off warnings
 source('scripts/04-fit-GAMs-host-traits.R')
 source('scripts/05-plot-GAMs-host-traits.R')
+allplots
 ```
 
 ## Figure 5
@@ -475,7 +558,7 @@ source('scripts/05-plot-GAMs-host-traits.R')
 
 Then GAMs for predicting zoonotic potential.
 
-```{r GAMs-zoonotic-potential, cache=cachedata}
+```{r GAMs-zoonotic-potential, cache=cachedata, message=FALSE}
 detachAllPackages <- function() {
 
   basic.packages <- c("package:stats","package:graphics","package:grDevices","package:utils","package:datasets","package:methods","package:base")
@@ -489,7 +572,7 @@ detachAllPackages <- function() {
 }
 ```
 
-```{r GAMs-2, message=FALSE, cache=cachedata}
+```{r GAMs-2, message=FALSE, cache=cachedata, message=FALSE}
 detachAllPackages()
 options(warn=-1)
 library(stringi)
@@ -520,6 +603,9 @@ dev.off()
 pdf(file="figures/Figure-5-gams-zoonotic-potential.pdf", width =7, height=5, pointsize=7)
 allplots
 dev.off()
+
+# Show plot
+allplots
 ```
 
 ## Figure 6
@@ -820,6 +906,8 @@ dev.off()
 png("figures/Figure-6-pathogen-sharing.png", width=1700, height=1000, pointsize = 14)
 cowplot::plot_grid(p.pathogen.sharing.orders.10, p.human.sharing)
 dev.off()
+# Show plot
+cowplot::plot_grid(p.pathogen.sharing.orders.10, p.human.sharing)
 ```
 
 It is useful to be able to match the points and names together, which can be done with the plot below. 
