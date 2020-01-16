@@ -10,9 +10,9 @@
 
 **Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux (\* co-first authors)
 
-This is a supplementary R Markdown workbook (Supplementary Text 1) containing code to reproduce all main figures and analyses in the associated paper, as well as several supplementary files. For more information on the dataset collection methods and analysis, please see the associated preprint. 
+This repository contains code to reproduce all figures and analyses in the associated paper analysing the host range of pathogen species. This is bundled together in the Rmarkdown notebook (Supplementary Text 1 of the manuscript). It also contains several data files. The image above is a schematic for the manual literature review used to construct the database of host-pathogen associations. For more information on the dataset collection methods and analysis, please see the preprint. 
 
-Code can be altered to change any of the figures.  Some explanatory text is provided, but not much. Any questions can be addressed via email (liam.philip.shaw@gmail.com). 
+Code can be altered to change any of the figures.  Some explanatory text is provided, but not much. Any questions can be addressed via email (liam.philip.shaw at gmail dot com). 
 
 Unless otherwise stated, data related to viruses is plotted in <span style="color:red">red</span> and bacteria in black. The code should take <10 minutes to run on a standard laptop. 
 
