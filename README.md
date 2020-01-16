@@ -6,10 +6,9 @@
 
 **Associated preprint**: *The phylogenetic range of bacterial and viral pathogens of vertebrates*
 
-doi: https://doi.org/10.1101/670315
+**doi**: https://doi.org/10.1101/670315
 
-**Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux
-\* Co-first author
+**Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux (\* co-first authors)
 
 This is a supplementary R Markdown workbook (Supplementary Text 1) containing code to reproduce all main figures and analyses in the associated paper, as well as several supplementary files. Code can be shown or hidden overall (see top right) or for individual sections. 
 
