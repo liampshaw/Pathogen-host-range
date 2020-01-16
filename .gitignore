@@ -1,4 +1,4 @@
 *.Rhistory
 *cache/
 *files/
-
+*DS_Store
