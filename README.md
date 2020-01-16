@@ -1,6 +1,6 @@
 # The phylogenetic range of bacterial and viral pathogens of vertebrates
 
-**Preprint**: The phylogenetic range of bacterial and viral pathogens of vertebrates
+**Associated preprint**: *The phylogenetic range of bacterial and viral pathogens of vertebrates*
 doi: https://doi.org/10.1101/670315
 
 **Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux
@@ -14,7 +14,7 @@ Unless otherwise stated, data related to viruses is plotted in <span style="colo
 
 **Note:** At several points code is adapted/reused from the supplementary code repository made available by Olival et. al. (2017):
 
-* Paper: *Host and Viral Traits Predict Zoonotic Spillover from Mammals*  https://doi.org/10.1038/nature22975 
+* Olival et al. (2017) paper: *Host and viral traits predict zoonotic spillover from mammals*  https://doi.org/10.1038/nature22975 
 * Code repository: https://github.com/ecohealthalliance/HP3
 * MIT License: https://opensource.org/licenses/MIT
 
