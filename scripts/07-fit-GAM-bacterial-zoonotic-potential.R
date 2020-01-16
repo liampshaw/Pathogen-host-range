@@ -270,4 +270,4 @@ bin_plot = ggplot() +
 # COMBINE THE PLOTS
 smooth_plots[[2]] <- smooth_plots[[2]] + ylab("")
 
-allplots_bacterial = cowplot::plot_grid(smooth_plots[[1]], smooth_plots[[2]], bin_plot, nrow=1, rel_widths = c(5.3, 4.35), labels = c("d", "e", "f"))
+allplots_bacterial = cowplot::plot_grid(smooth_plots[[1]], smooth_plots[[2]], bin_plot, nrow=1, rel_widths = c(5.3, 4.35), labels = c("(d)", "(e)", "(f)"), label_size=7)

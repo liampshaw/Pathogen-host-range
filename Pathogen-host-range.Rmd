@@ -554,8 +554,6 @@ allplots
 
 ## Figure 5
 
-
-
 Then GAMs for predicting zoonotic potential.
 
 ```{r GAMs-zoonotic-potential, cache=cachedata, message=FALSE}

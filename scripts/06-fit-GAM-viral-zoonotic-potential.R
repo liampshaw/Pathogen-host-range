@@ -231,5 +231,5 @@ bin_plot = ggplot() +
 
 # COMBINE THE PLOTS
 smooth_plots[[2]] <- smooth_plots[[2]] + ylab("")
-allplots_viral = cowplot::plot_grid(smooth_plots[[1]], smooth_plots[[2]], bin_plot, nrow=1, rel_widths = c(5.3, 5.3, 5.3), labels = c("a", "b", "c"))
+allplots_viral = cowplot::plot_grid(smooth_plots[[1]], smooth_plots[[2]], bin_plot, nrow=1, rel_widths = c(5.3, 5.3, 5.3), labels = c("(a)", "(b)", "(c)"), label_size=7)
 
