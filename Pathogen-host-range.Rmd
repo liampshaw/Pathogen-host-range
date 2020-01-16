@@ -1,0 +1,1423 @@
+---
+title: The phylogenetic range of bacterial and viral pathogens of vertebrates
+author: Liam Shaw 
+output:
+  pdf_document: default
+  html_document: 
+    css: custom.css
+    fig_height: 8
+    fig_width: 12
+    toc: true  
+    fig_caption: true
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+
+**Paper**: The phylogenetic range of bacterial and viral pathogens of vertebrates
+preprint: https://doi.org/10.1101/670315
+
+**Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux
+
+\* Co-first author
+
+# Introduction
+
+This is a supplementary R Markdown workbook (Supplementary Text 1) containing code to reproduce all main figures and analyses in the associated paper, as well as several supplementary files. Code can be shown or hidden overall (see top right) or for individual sections. 
+
+Code can be altered to change any of the figures.  Some explanatory text is provided, but not much. Any questions can be addressed via email (liam.philip.shaw@gmail.com). 
+
+Unless otherwise stated, data related to viruses is plotted in <span style="color:red">red</span> and bacteria in black. The code should take <10 minutes to run on a standard laptop. 
+
+**Note:** At several points code is adapted/reused from the supplementary code repository made available by Olival et. al. (2017):
+
+* Paper: *Host and Viral Traits Predict Zoonotic Spillover from Mammals*  https://doi.org/10.1038/nature22975 
+* Code repository: https://github.com/ecohealthalliance/HP3
+* MIT License: https://opensource.org/licenses/MIT
+
+This mainly applies to several scripts in the `scripts' directory relating to the fitting and plotting of generalized additive models (GAMs) -- more information is included where appropriate. All code here is also made available under an MIT License. 
+
+# Preliminary steps
+
+The following code chunk contains library requirements and defines two useful functions:
+
+* PHB (Phylogenetic Host Breadth) - function of the cophenetic distance between the hosts of a pathogen species (default: mean).
+* THR (Taxonomic Host Range) - function of the cophenetic distance between all hosts of a particular taxonomic group (default: mean). 
+
+```{r Setup, echo=FALSE, message=FALSE, cache=TRUE}
+options(warn=-1) # Turn off warnings
+# Libraries
+library(broman)
+library(ape)
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(tidyr)
+library(grid)
+library(broman)
+library(gridExtra)
+library(cowplot)
+cachedata = TRUE
+cachetests = TRUE
+echoing = TRUE
+warnings = FALSE
+
+# To (hopefully) avoid the accidental classic 'string/factor' bug
+options(stringsAsFactors=F)
+
+# Default plot theme
+theme_basic <- function () { 
+  theme_bw(base_size=14) %+replace% 
+    theme(
+      axis.text=element_text(colour="black")
+    ) %+replace% 
+    theme(
+      panel.grid=element_blank()
+    )
+}
+
+# Function: Phylogenetic Host Breadth
+PHB <- function(pathogen, cophenetic.matrix=cophenetic_matrix, m=pathogen_vs_host_db, FUN=mean){
+  species.list <- m[m$Species==pathogen,"HostSpeciesPHB"]
+  species.matrix <- cophenetic.matrix[species.list, species.list]
+  species.matrix <- species.matrix[upper.tri(species.matrix)]
+  if (length(species.matrix)>1){
+    phb.function <- FUN(species.matrix)
+  }
+  else{
+    phb.function <- 0
+  }
+  return(phb.function)
+}
+
+# Function: Taxonomic Host Range
+THR <- function(taxgroup, cophenetic.matrix = cophenetic_matrix, 
+                m = pathogen_vs_host_db, FUN = mean) {
+  species.list <- pathogen_vs_host_db[pathogen_vs_host_db$HostOrder==taxgroup,
+                                      "HostSpeciesPHB"]
+  thr.function <- FUN(cophenetic.matrix[species.list, species.list])
+  return(thr.function)
+}
+```
+
+
+First, the data is read in: the database of host-pathogen associations (tidy format i.e. one association per row); and the host phylogenetic tree based on mitochondrial gene alignments.
+
+```{r Read_in_data, cache=cachedata}
+# Host-pathogen association database
+pathogen_vs_host_db <- read.csv('data/PathogenVsHostDB-2019-05-30.csv', stringsAsFactors = F)
+# Host phylogenetic tree
+host_tree <- read.tree('data/HostPhylogeneticTree-2019-05-30.nwk')
+# Uncomment to use only species which do not disrupt monophyly (n=40)
+#host_tree <- read.tree('HostPhylogeneticTree-2019-05-30-pruned.nwk')
+
+# Cophenetic matrix (from phylogenetic tree)
+cophenetic_matrix <- cophenetic.phylo(host_tree) 
+
+# Keep only overlap 
+host_tree <- drop.tip(host_tree, host_tree$tip.label[which(!host_tree$tip.label %in% pathogen_vs_host_db$HostSpeciesPHB)])
+pathogen_vs_host_db <- pathogen_vs_host_db[which(pathogen_vs_host_db$HostSpeciesPHB %in% host_tree$tip.label),]
+
+
+# Subset database into virus and bacteria
+virus <- pathogen_vs_host_db[which(pathogen_vs_host_db$Type=="Virus"),]
+bacteria <- pathogen_vs_host_db[which(pathogen_vs_host_db$Type=="Bacteria"),]
+```
+
+### Initial statistics
+
+To begin with, some overall statistics which are cited in the main text. 
+
+```{r Initial_statistics_host_orders, results=FALSE, cache=cachedata}
+# List of host orders
+host_orders <- unique(as.character(pathogen_vs_host_db$HostOrder))
+n.host.orders <- length(host_orders)
+```
+
+```{r Initial_statistics_interhost, cache=cachedata}
+# Calculate THR for each host order
+order_thr <- sapply(host_orders, function(x) THR(x, FUN=max))
+median.inter.host.distance.order <- median(order_thr)
+```
+
+The number of host orders is `r n.host.orders`.
+
+The medium maximum inter-host distance within an order is `r require(broman); myround(median.inter.host.distance.order, 3)`. 
+
+#### Proportion of specialists
+
+
+
+#### Vector-borne
+
+We find that viruses are significantly more likely to be vector-borne compared with bacteria. 
+
+```{r Initial_statistics_2, cache=cachedata}
+vector.tab <- table(pathogen_vs_host_db[which(!duplicated(pathogen_vs_host_db$Species)),"VectorBorne"], pathogen_vs_host_db[which(!duplicated(pathogen_vs_host_db$Species)),"Type"])
+vector.tab <- vector.tab[c("No", "Yes"),]
+chisq.test(vector.tab)
+```
+
+
+
+## Removing humans from the database
+
+While humans are important, we want to think about pathogen range etc. after removing them from the database and the host tree. We recalculate PHB after doing this. 
+
+```{r Remove_humans, cache=cachedata}
+# Removing humans from database
+pathogen_vs_host_db_no_humans <- pathogen_vs_host_db[which(pathogen_vs_host_db$HostSpeciesPHB!="Homosapiens"),]
+t.no.humans <- drop.tip(host_tree, tip = host_tree$tip.label[!host_tree$tip.label %in% pathogen_vs_host_db_no_humans$HostSpeciesPHB])
+d.no.humans <- cophenetic.phylo(t.no.humans)
+# Bacteria PHB
+bacteria.names <- names(sort(table(bacteria$Species), decreasing=TRUE))
+bacteria.no.humans.phbs <- as.numeric(sapply(bacteria.names, function(x) PHB(x, 
+                                                                             m=pathogen_vs_host_db_no_humans, 
+                                                                             cophenetic.matrix = d.no.humans)))
+virus.names <- names(sort(table(virus$Species), decreasing=TRUE))
+virus.no.humans.phbs <- as.numeric(sapply(virus.names, function(x) PHB(x,                                                                 m=pathogen_vs_host_db_no_humans, 
+                                                                       cophenetic.matrix = d.no.humans)))
+virus.no.humans.phbs.range <- as.numeric(sapply(virus.names, function(x) PHB(x,                                                                 m=pathogen_vs_host_db_no_humans, 
+                                                                             cophenetic.matrix = d.no.humans, FUN = max)))
+
+```
+
+## Summary statistics
+
+It is useful to have data frames with the summary statistics for each pathogen species (i.e. one row per pathogen), calculated from the pathogen-host association database (one row per association). We separate this into viruses and bacteria, as we treat them separately. 
+
+### Viruses
+
+```{r Virus_data_frame, results=FALSE, cache=cachedata}
+virus.names <- names(sort(table(virus$Species), decreasing=TRUE))
+n.hosts <- as.numeric(sort(table(virus$Species), decreasing=TRUE))
+virus.phbs <- sapply(virus.names, function(x) PHB(x))
+virus.unique <- virus[which(!duplicated(virus$Species)),]
+rownames(virus.unique) <- virus.unique$Species
+proteins <- as.numeric(virus.unique[virus.names, "ProteinCount"])
+
+virus.families <- virus.unique[virus.names, "Family"]
+
+# Combine into a data frame of statistics for each viral pathogen
+virus.df <- data.frame(cbind(virus.phbs, proteins))
+
+genome.size <- as.numeric(virus.unique[virus.names, "Gsize"])
+virus.df$genome.size <- genome.size
+virus.df$family <- virus.families
+#
+n.hosts <- as.numeric(sort(table(virus$Species), decreasing=TRUE))
+
+virus.df$n.hosts <- n.hosts
+
+genome.type <- virus.unique[virus.names, "Genome"]
+virus.df$genome.type <- genome.type # Genome type
+# Genome type (just RNA/DNA)
+genome.type.rna.dna <- ifelse(genome.type %in% c("(-) ssRNA", "(+) ssRNA",
+                                                 "ssRNA-RT", "dsRNA"), "RNA",
+                              ifelse(genome.type %in% c("dsDNA", "dsDNA-RT", "ssDNA"), 
+                                     "DNA", ""))
+virus.df$genome.type.rna.dna <- genome.type.rna.dna 
+
+zoonotic <-  ifelse(virus.unique[virus.names, "Zoonotic"]=="Yes", "Zoonotic", "Not zoonotic")
+virus.df$n.hosts <- n.hosts # Number of hosts
+virus.df$zoonotic <- zoonotic # Zoonotic
+virus.df$virus.phbs.no.human <- virus.no.humans.phbs # Add non-human mean PHB
+virus.df$virus.phbs.max.no.human <- virus.no.humans.phbs.range # Add non-human maximum PHB
+virus.df$vector.borne <- virus.unique[virus.names, "VectorBorne"]
+```
+
+### Bacteria
+
+```{r Bacteria_data_frame, cache=cachedata}
+# Get bacterial pathogen species names
+bacteria.names <- names(sort(table(bacteria$Species), decreasing=TRUE))
+# Get number of hosts for each pathogen
+n.hosts <- as.numeric(sort(table(bacteria$Species), decreasing=TRUE))
+# Get mean PHB for each pathogen
+bacteria.phbs <- as.numeric(sapply(bacteria.names, function(x) PHB(x)))
+# Dataframe of unique bacterial pathogen species
+bacteria.unique <- bacteria[which(!duplicated(bacteria$Species)),]
+rownames(bacteria.unique) <- bacteria.unique$Species
+
+# Extract relevant lifestyle variables:
+# motility, cell, Gram stain, 
+# spore formation, oxygen requirements, zoonotic
+motility <- bacteria.unique[bacteria.names, "Motility"]
+cell <- bacteria.unique[bacteria.names, "Cell"]
+gram <- bacteria.unique[bacteria.names, "GramStain"]
+spore <- bacteria.unique[bacteria.names, "Spore"]
+oxygen <-  bacteria.unique[bacteria.names, "Oxygen"]
+zoonotic <-  ifelse(bacteria.unique[bacteria.names, "Zoonotic"]=="Yes", "Zoonotic", "Not zoonotic")
+
+# Combine this information into a single data frame of statistics for each bacterial pathogen
+bacteria.df <- data.frame(cbind(bacteria.names, n.hosts, bacteria.phbs, 
+                                motility, gram, spore, oxygen, zoonotic, cell))
+bacteria.df$bacteria.phbs <- as.numeric(as.character(bacteria.df$bacteria.phbs)) # Make sure numeric variable
+bacteria.df$bacteria.phbs.no.human <- bacteria.no.humans.phbs # Add in PHB without humans
+bacteria.df$family <- bacteria.unique[bacteria.names, "Family"] # Add taxonomic family
+bacteria.df$genus <- bacteria.unique[bacteria.names, "Genus"] # Add taxonomic genus
+bacteria.df$vector.borne <- bacteria.unique[bacteria.names, "VectorBorne"]
+```
+
+
+# Figures 
+
+## Figure 1
+
+This is the schematic overview figure, and was made manually in Inkscape using images from FlatIcon (see references in main manuscript).
+
+## Figure 2
+
+We get a dataset of just the unique pathogens and then calculate the mean phylogenetic host breadth (PHB) of each pathogen. We then use this to plot a histogram.
+
+```{r Figure_PHB_histogram, cache=cachedata}
+# Get unique pathogens
+unique_pathogens <- data.frame(Species=pathogen_vs_host_db[!duplicated(pathogen_vs_host_db$Species),"Species"],
+                          Type=pathogen_vs_host_db[!duplicated(pathogen_vs_host_db$Species),"Type"])
+unique_pathogens$Species <- as.character(unique_pathogens$Species)
+# Calculate PHB
+unique_pathogens$PHB <- sapply(unique_pathogens$Species, function(x) PHB(x, cophenetic.matrix = cophenetic_matrix, m = pathogen_vs_host_db))
+unique_pathogens$PHB.median <- sapply(unique_pathogens$Species, function(x) PHB(x, cophenetic.matrix = cophenetic_matrix, m = pathogen_vs_host_db, FUN=median))
+unique_pathogens$PHB.max <- sapply(unique_pathogens$Species, function(x) PHB(x, cophenetic.matrix = cophenetic_matrix, m = pathogen_vs_host_db, FUN = max))
+
+
+# Number of total hosts
+host_species_counts <- data.frame(pathogen_vs_host_db %>% group_by(Species) %>% summarise(count=length(HostSpeciesPHB)))
+rownames(host_species_counts) <- host_species_counts$Species
+unique_pathogens$N.hosts <- host_species_counts[unique_pathogens$Species,"count"]
+
+# Gather data
+pathogen_range_histo <- data.frame(  phb = 1:50/30-0.03, 
+                                     bacteria = hist(filter(unique_pathogens, Type == "Bacteria")$PHB, breaks = 0:50/30, freq = TRUE, plot = FALSE)$count,
+                                     virus = hist(filter(unique_pathogens, Type == "Virus")$PHB, breaks = 0:50/30, freq = TRUE, plot = FALSE)$count) %>% gather(type, count, -phb)
+pathogen_range_histo$count.norm <- pathogen_range_histo$count/sum(pathogen_range_histo$count)
+pathogen_range_histo$type <- ifelse(pathogen_range_histo$type=="bacteria", "Bacteria", "Virus")
+
+pathogen_range_histo.total <- data.frame(pathogen_range_histo %>% group_by(phb) %>% summarise(count=sum(count)))
+# Pathogen range histogram, excluding zeros
+pathogen_range_histo$type <- ordered(pathogen_range_histo$type, levels=c("Virus", "Bacteria"))
+levels(pathogen_range_histo$type) <- c("(a) Viruses", "(b) Bacteria")
+p.histogram.figure.2 <- ggplot(pathogen_range_histo, aes(fill=type, x=phb, y=count))+
+  geom_histogram(colour="black", aes(fill="All"), data=pathogen_range_histo.total, stat="identity", alpha=0.4)+
+  ylim(c(0,75))+geom_bar(stat="identity")+
+  facet_wrap(~type, ncol=1)+
+  scale_fill_manual(values=c("#de2d26", "#252525", "#f7f7f7"))+
+  xlim(c(0,1))+theme_basic()+
+  xlab("Mean PHB")+
+  ylab("Frequency")+
+  labs(fill="Pathogen type")+
+  geom_vline(xintercept = median(filter(unique_pathogens, Type == "Bacteria")$PHB[which(filter(unique_pathogens, Type == "Bacteria")$PHB!=0)]), 
+             colour="white", size=2, alpha=0.8)+
+    geom_vline(xintercept = median(filter(unique_pathogens, Type == "Bacteria")$PHB[which(filter(unique_pathogens, Type == "Bacteria")$PHB!=0)]), 
+             colour="black", size=1, linetype="dashed")+ # Second to make colour clear
+    geom_vline(xintercept = median(filter(unique_pathogens, Type == "Virus")$PHB[which(filter(unique_pathogens, Type == "Virus")$PHB!=0)]), 
+             colour="white", size=2, alpha=0.8)+
+    geom_vline(xintercept = median(filter(unique_pathogens, Type == "Virus")$PHB[which(filter(unique_pathogens, Type == "Virus")$PHB!=0)]), 
+             colour="red", size=1, linetype="dashed")+ # Second to make colour clear
+  theme(axis.text=element_text(size=16),
+        legend.text =element_text(colour="black", size=16),
+        legend.title=element_text(colour="black", size=18),
+        strip.text.x=element_text(colour="black", size=22),
+        axis.title=element_text(colour="black", size=22))+
+  theme(legend.position="none")
+# Perform Wilcox test (for the caption of the figure)
+wilcox.test(unique_pathogens[which(unique_pathogens$PHB>0 & unique_pathogens$Type=="Bacteria"),"PHB"], unique_pathogens[which(unique_pathogens$PHB>0 & unique_pathogens$Type=="Virus"),"PHB"])
+median(unique_pathogens[which(unique_pathogens$PHB>0 & unique_pathogens$Type=="Bacteria"),"PHB"])
+median(unique_pathogens[which(unique_pathogens$PHB>0 & unique_pathogens$Type=="Virus"),"PHB"])
+
+# Show plot
+p.histogram.figure.2
+# Save figure
+pdf("figures/Figure-2-histogram-PHB.pdf", width=12, height=8)
+p.histogram.figure.2
+dev.off()
+png("figures/Figure-2-histogram-PHB.png", width=1200, height=800)
+p.histogram.figure.2
+dev.off()
+```
+
+
+## Figure 3
+
+We want to produce an analagous version of Figure 1 from Olival et al. (2017) with our data. 
+
+```{r viral_richness_per_host_order, cache=cachedata}
+library(dplyr)
+library(ggplot2)
+
+# First make a dataset per order of mammals 
+# Note that we have Artiodactyla where Olival et al. have "Cetartiodactyla" - have changed this
+mammal.orders <- stringi::stri_trans_totitle(c( "CINGULATA", "PILOSA","DIDELPHIMORPHIA", "EULIPOTYPHLA",
+                "CHIROPTERA", "PRIMATES", "RODENTIA", "CARNIVORA", "LAGOMORPHA", "PROBOSCIDEA", "DIPROTODONTIA",
+                 "ARTIODACTYLA", "PERISSODACTYLA",  "PERAMELEMORPHIA", "SCANDENTIA"))
+pathogen_vs_mammal_db <- pathogen_vs_host_db_no_humans[which(pathogen_vs_host_db_no_humans$HostOrder %in% mammal.orders),] 
+human_pathogens <- pathogen_vs_host_db$Species[which(pathogen_vs_host_db$HostSpeciesPHB=="Homosapiens")]
+pathogen_vs_mammal_db$pathogenSharedWithHumans <- ifelse(pathogen_vs_mammal_db$Species %in% human_pathogens,
+                                                         "yes", "no")
+boxplot.df <- data.frame(pathogen_vs_mammal_db %>% 
+                           group_by(HostSpeciesPHB, HostOrder, Type) %>%
+                           summarise(nPathogens=length(Species),
+                                     nHumanPathogens=sum(pathogenSharedWithHumans == "yes"),
+                                     nWildMammalHosts=sum(Domestic == "No")))
+boxplot.df$propHumanPathogens <- boxplot.df$nHumanPathogens/boxplot.df$nPathogens
+boxplot.df$propWildMammalHosts <- boxplot.df$nWildMammalHosts/boxplot.df$nPathogens
+
+# Add information on domesticity: is host species domestic or not?
+# Need to check this as they can be different for each association 
+# i.e. is a species completely wild, completely domestic, or a mixture?
+host.df <- pathogen_vs_host_db[which(!duplicated(pathogen_vs_host_db$HostSpeciesPHB)),]
+host.df.domestic <- host.df$Domestic
+names(host.df.domestic) <- host.df$HostSpeciesPHB
+domestic.mammals <- names(host.df.domestic)[which(host.df.domestic=="Yes")]
+wild.mammals <- names(host.df.domestic)[which(host.df.domestic=="No")]
+captive.mammals <- names(host.df.domestic)[which(host.df.domestic=="Captive")]
+
+
+# Order hosts using Olival et al. ordering
+boxplot.df$HostOrder <- ordered(boxplot.df$HostOrder, levels=mammal.orders)
+
+# Proportion of zoonotic pathogens for viruses
+p.virus.zoonotic <- ggplot(data=boxplot.df[which(boxplot.df$Type=="Virus"),], aes( HostOrder, propHumanPathogens))+
+  geom_boxplot(outlier.shape = NA, fill="#fee5d9")+
+  theme_basic()+coord_flip()+
+  geom_jitter(aes(fill=propWildMammalHosts), colour="black", shape=21, width=0.15, height = 0, size=2)+
+  scale_fill_continuous(low="white", high="red")+
+  scale_x_discrete(drop=FALSE)+
+  theme(legend.position = "none")+
+  ylab("")+xlab("")+
+  ylab("Proportion of zoonotic viruses")+
+  ggtitle("(a)")+
+  theme(plot.title=element_text(hjust=0))
+
+p.virus.richness <- ggplot(data=boxplot.df[which(boxplot.df$Type=="Virus"),], aes( HostOrder, nPathogens))+
+  geom_boxplot(outlier.shape = NA, fill="#fee5d9")+
+  theme_basic()+coord_flip()+
+  geom_jitter(aes(fill=propWildMammalHosts), colour="black", shape=21, width=0.15, height = 0, size=2)+
+  scale_fill_continuous(low="white", high="red", limits=c(0,1))+
+  ylab("")+xlab("")+
+  theme(legend.position = "none")+
+  theme(axis.text.y=element_blank())+
+  ylab("Total viral richness")+
+    ggtitle("(b)")+
+  theme(plot.title=element_text(hjust=0))+
+  ylim(c(0,60))+
+    labs(fill="Proportion of wild hosts")+
+  theme(legend.position = c(0.7,0.15),
+        legend.title = element_text(size=14), 
+        legend.background = element_rect(colour="black"))
+
+p.bacteria.zoonotic <- ggplot(data=boxplot.df[which(boxplot.df$Type=="Bacteria"),], aes( HostOrder, propHumanPathogens))+
+  geom_boxplot(outlier.shape = NA, fill="#f7f7f7")+
+  theme_basic()+coord_flip()+
+  geom_jitter(aes(fill=propWildMammalHosts), colour="black", shape=21, width=0.15, height = 0, size=2)+
+  scale_x_discrete(drop=FALSE)+
+  scale_fill_continuous(low="white", high="black")+
+  ylab("")+xlab("")+
+  theme(legend.position = "none")+
+  ylab("Proportion of zoonotic bacteria")+
+    ggtitle("(c)")+
+  theme(plot.title=element_text(hjust=0))
+
+p.bacteria.richness <- ggplot(data=boxplot.df[which(boxplot.df$Type=="Bacteria"),], aes( HostOrder, nPathogens))+
+  geom_boxplot(outlier.shape = NA, fill="#f7f7f7")+
+  theme_basic()+coord_flip()+
+  geom_jitter(aes(fill=propWildMammalHosts), colour="black", shape=21, width=0.15, height = 0, size=2)+
+  scale_fill_continuous(low="white", high="black", limits=c(0,1))+
+  ylab("")+xlab("")+
+  scale_x_discrete(drop=FALSE)+
+  theme(legend.position = "none")+
+  theme(axis.text.y=element_blank())+
+  ylab("Total bacterial richness")+
+    ggtitle("(d)")+
+  theme(plot.title=element_text(hjust=0))+
+  ylim(c(0,60))+
+  labs(fill="Proportion of wild hosts")+
+  theme(legend.position = c(0.7,0.15),
+        legend.title = element_text(size=14), 
+        legend.background = element_rect(colour="black"))
+
+pdf(file="figures/Figure-3-richness-per-species.pdf", width=20, height=9)
+cowplot::plot_grid(p.virus.zoonotic, p.virus.richness,
+                   p.bacteria.zoonotic, p.bacteria.richness, nrow=1)
+dev.off()
+png(file="figures/Figure-3-richness-per-species.png", width=2000, height=900)
+cowplot::plot_grid(p.virus.zoonotic, p.virus.richness,
+                   p.bacteria.zoonotic, p.bacteria.richness, nrow=1)
+dev.off()
+
+# Correlation of bacterial and viral richness per host order
+boxplot.df.bacteria <- boxplot.df[which(boxplot.df$Type=="Bacteria"),]
+boxplot.df.virus <- boxplot.df[which(boxplot.df$Type=="Virus"),]
+# Shared hosts i.e. have both bacteria and virus associations
+shared.hosts <- boxplot.df.virus$HostSpeciesPHB[which(boxplot.df.virus$HostSpeciesPHB %in% boxplot.df.bacteria$HostSpeciesPHB)]
+boxplot.df.shared <- boxplot.df[which(boxplot.df$HostSpeciesPHB %in% shared.hosts),]
+# Now they are sorted, so can easily separate
+mammal.bacterial.viral.richness <- data.frame(species=shared.hosts,
+                                              nBacteria=boxplot.df.shared$nPathogens[which(boxplot.df.shared$Type=="Bacteria")],
+                                              propBacteriaSharedHumans=boxplot.df.shared$propHumanPathogens[which(boxplot.df.shared$Type=="Bacteria")],
+                                              nVirus=boxplot.df.shared$nPathogens[which(boxplot.df.shared$Type=="Virus")],
+                                              propVirusSharedHumans=boxplot.df.shared$propHumanPathogens[which(boxplot.df.shared$Type=="Virus")])
+cor.test(mammal.bacterial.viral.richness$nBacteria, mammal.bacterial.viral.richness$nVirus)
+```
+
+## Figure 4
+
+First we do GAMs for host traits which predict viral and bacterial richness.
+
+```{r GAMs, cache=cachedata}
+source('scripts/04-fit-GAMs-host-traits.R')
+source('scripts/05-plot-GAMs-host-traits.R')
+```
+
+## Figure 5
+
+
+
+Then GAMs for predicting zoonotic potential.
+
+```{r GAMs-zoonotic-potential, cache=cachedata}
+detachAllPackages <- function() {
+
+  basic.packages <- c("package:stats","package:graphics","package:grDevices","package:utils","package:datasets","package:methods","package:base")
+
+  package.list <- search()[ifelse(unlist(gregexpr("package:",search()))==1,TRUE,FALSE)]
+
+  package.list <- setdiff(package.list,basic.packages)
+
+  if (length(package.list)>0)  for (package in package.list) detach(package, character.only=TRUE)
+
+}
+```
+
+```{r GAMs-2, message=FALSE, cache=cachedata}
+detachAllPackages()
+options(warn=-1)
+library(stringi)
+library(parallel)
+library(magrittr)
+library(purrr)
+library(mgcv)
+library(ggplot2)
+library(cowplot)
+library(viridis)
+library(svglite)
+library(phangorn)
+library(MuMIn)
+library(dplyr)
+
+source('scripts/06-fit-GAM-viral-zoonotic-potential.R')
+source('scripts/07-fit-GAM-bacterial-zoonotic-potential.R')
+```
+
+```{r GAMs-2-plot, cache=cachedata}
+allplots = cowplot::plot_grid(allplots_viral, allplots_bacterial, nrow=2, rel_widths = c(5.3, 5.3, 5.3))
+
+# Save plots
+png(file="figures/Figure-5-gams-zoonotic-potential.png", width = convertr::convert(183, "mm", "in")*500, convertr::convert(100, "mm", "in")*600, pointsize=7, res=600)
+allplots
+dev.off()
+
+pdf(file="figures/Figure-5-gams-zoonotic-potential.pdf", width =7, height=5, pointsize=7)
+allplots
+dev.off()
+```
+
+## Figure 6
+
+We make a plot of the host switching for bacteria and viruses together (left panel of figure). We restrict 
+
+```{r Figure_distance_shared_pathogens_scatter, cache=cachedata}
+hostShiftingResultsOrder <- function(type="Bacteria", min.rep=0){
+   metadata.type <- metadata[which(metadata$Type %in% type),]
+  # Get host orders, and keep only those with more than min.rep representatives
+  type.host.orders.t <- table(metadata.type$HostOrder)
+  type.host.orders <- names(type.host.orders.t[type.host.orders.t>min.rep])
+  # Prepare results to fill
+  results <- matrix(nrow=0, ncol=8)
+  # For each host order
+  for (reference.order in type.host.orders){
+    reference.order.pathogens <- unique(metadata.type[which(metadata.type$HostOrder==reference.order), "Species"])
+    reference.order.species <- unique(as.character(metadata.type[which(metadata.type$HostOrder==reference.order), "HostSpeciesPHB"]))
+    # For each host order, return percentage of pathogens shared with host order vs. mean distance 
+    for (comparison.order in type.host.orders){
+      #  All pathogens in that host order
+      pathogens <- metadata.type[which(metadata.type$HostOrder==comparison.order),"Species"]
+      # Percentage of those pathogens that are shared with reference order
+      perc.shared <- length(pathogens[pathogens %in% reference.order.pathogens])/length(pathogens)
+      perc.shared.unique <- length(unique(pathogens)[unique(pathogens) %in% reference.order.pathogens])/length(unique(c(pathogens, reference.order.pathogens)))
+      # Mean of all host order in order from reference order
+      comparison.order.species <- unique(as.character(metadata.type[which(metadata.type$HostOrder==comparison.order),"HostSpeciesPHB"]))
+      mean.distance <- mean(d[comparison.order.species, reference.order.species])
+      sd.distance <- sd(d[comparison.order.species, reference.order.species])
+      # Add to results 
+      if (reference.order==comparison.order){
+        mean.distance <- NA
+        sd.distance <- NA
+        perc.shared <- NA
+        perc.shared.unique <- NA
+      }
+      results <- rbind(results, c(reference.order,
+                                  comparison.order,
+                                  mean.distance, 
+                                  sd.distance, 
+                                  perc.shared, 
+                                  perc.shared.unique, 
+                                  length(reference.order.species), 
+                                  length(comparison.order.species) ))
+    }
+  }
+  
+  # Naming of data frame, add names of host orders
+  results <- as.data.frame(results, stringsAsFactors=FALSE)
+  colnames(results) <- c("order.1",
+                         "order.2",
+                         "mean.distance", 
+                         "sd.distance", 
+                         "perc.shared", 
+                         "perc.shared.unique",
+                         "n.associations.order.1", 
+                         "n.associations.order.2")
+  results$perc.shared <- as.numeric(results$perc.shared)
+  results$perc.shared.unique <- as.numeric(results$perc.shared.unique)
+
+  results$mean.distance <- as.numeric(results$mean.distance)
+  results$sd.distance <- as.numeric(results$sd.distance)
+  return(results)
+}
+hostShiftingResultsFamily <- function(type="Bacteria", min.rep=0){
+   metadata.type <- metadata[which(metadata$Type %in% type),]
+  # Get host families, and keep only those with more than min.rep representatives
+  type.host.families.t <- table(metadata.type$HostFamily)
+  type.host.families <- names(type.host.families.t[type.host.families.t>min.rep])
+  # Get list of host.species 
+  host.table <- table(metadata.type$HostSpeciesPHB)
+  host.species <- names(host.table)[which(host.table>min.rep)]
+  results <- matrix(nrow=0, ncol=8)
+  # For each host family
+  for (reference.family in type.host.families){
+    reference.family.pathogens <- unique(metadata.type[which(metadata.type$HostFamily==reference.family), "Species"])
+    reference.family.species <- unique(as.character(metadata.type[which(metadata.type$HostFamily==reference.family), "HostSpeciesPHB"]))
+    # For each host order, return percentage of pathogens shared with host family vs. mean distance 
+    for (comparison.family in type.host.families){
+      #  All pathogens in that host family
+      pathogens <- metadata.type[which(metadata.type$HostFamily==comparison.family),"Species"]
+      # Percentage of those pathogens that are shared with reference order
+      perc.shared <- length(pathogens[pathogens %in% reference.family.pathogens])/length(pathogens)
+      perc.shared.unique <- length(unique(pathogens)[unique(pathogens) %in% reference.order.pathogens])/length(unique(c(pathogens, reference.order.pathogens)))
+      # Mean of all host order in order from reference order
+      comparison.family.species <- unique(as.character(metadata.type[which(metadata.type$HostFamily==comparison.family),"HostSpeciesPHB"]))
+      mean.distance <- mean(d[comparison.family.species, reference.family.species])
+      sd.distance <- sd(d[comparison.family.species, reference.family.species])
+      # Add to results
+      results <- rbind(results, c(reference.family,
+                                  comparison.family,
+                                  mean.distance, 
+                                  sd.distance, 
+                                  perc.shared, 
+                                  perc.shared.unique, 
+                                  length(metadata.type[which(metadata.type$HostFamily==reference.family), "HostSpeciesPHB"]),
+                                  length(metadata.type[which(metadata.type$HostFamily==comparison.family), "HostSpeciesPHB"]) ))
+    }
+  }
+  
+  # Naming of data frame, add names of host orders
+  results <- as.data.frame(results, stringsAsFactors=FALSE)
+  colnames(results) <- c("family.1",
+                         "family.2",
+                         "mean.distance", 
+                         "sd.distance", 
+                         "perc.shared", 
+                         "perc.shared.unique",
+                         "n.associations.family.1", 
+                         "n.associations.order.2")
+  results$perc.shared <- as.numeric(results$perc.shared)
+  results$perc.shared.unique <- as.numeric(results$perc.shared.unique)
+
+  results$mean.distance <- as.numeric(results$mean.distance)
+  results$sd.distance <- as.numeric(results$sd.distance)
+  return(results)
+}
+
+hostShiftingResultsSpecies <- function(type="Bacteria", min.rep=0){
+   metadata.type <- metadata[which(metadata$Type %in% type),]
+  # Get host orders, and keep only those with more than min.rep representatives
+  type.host.species.t <- table(metadata.type$HostSpeciesPHB)
+  type.host.species <- names(type.host.species.t[type.host.species.t>min.rep])
+  # Get list of host.species 
+  host.species <- type.host.species
+  results <- matrix(nrow=0, ncol=8)
+  # For each host species
+  for (reference.species in host.species){
+    reference.species.pathogens <- unique(metadata.type[which(metadata.type$HostSpeciesPHB==reference.species), "Species"])
+    # For each host species, return percentage of pathogens shared with host species vs. mean distance 
+    for (comparison.species in host.species){
+      #  All pathogens in that host species
+      pathogens <- metadata.type[which(metadata.type$HostSpeciesPHB==comparison.species),"Species"]
+      # Percentage of those pathogens that are shared with reference species
+      perc.shared <- length(pathogens[pathogens %in% reference.species.pathogens])/length(pathogens)
+      perc.shared.unique <- length(unique(pathogens)[unique(pathogens) %in% reference.species.pathogens])/length(unique(c(pathogens, reference.species.pathogens)))
+      # Mean of all host species in order from reference order
+      mean.distance <- mean(d[comparison.species, reference.species])
+      sd.distance <- sd(d[comparison.species, reference.species])
+      # Add to results
+      results <- rbind(results, c(reference.species,
+                                  comparison.species,
+                                  mean.distance, 
+                                  sd.distance, 
+                                  perc.shared, 
+                                  perc.shared.unique, 
+                                  length(reference.species), 
+                                  length(comparison.species) ))
+    }
+  }
+  
+  # Naming of data frame, add names of host orders
+  results <- as.data.frame(results, stringsAsFactors=FALSE)
+  colnames(results) <- c("species.1",
+                         "species.2",
+                         "mean.distance", 
+                         "sd.distance", 
+                         "perc.shared", 
+                         "perc.shared.unique",
+                         "n.hosts.species.1", 
+                         "n.hosts.species.2")
+  results$perc.shared <- as.numeric(results$perc.shared)
+  results$perc.shared.unique <- as.numeric(results$perc.shared.unique)
+
+  results$mean.distance <- as.numeric(results$mean.distance)
+  results$sd.distance <- as.numeric(results$sd.distance)
+  return(results)
+}
+
+hostShiftingPlot <- function(results, title.string=""){
+  # Correlation test
+  correlation <- cor.test(results$mean.distance, results$perc.shared, method = "spearman")
+  # Label for correlation statistics
+  corr.label <- data.frame(
+    mean.distance = 0,
+    perc.shared = 0.1, 
+    label = paste("Spearman's rho = ", myround(correlation$estimate, 3), 
+                  "\n p = ", myround(correlation$p.value, 3)),
+    host.order="",
+    n.hosts="NA*")
+  # Plot results
+  p <- ggplot(results, aes(x=mean.distance, y=perc.shared.unique))+
+    geom_point( fill="black", alpha=0.2)+
+    stat_smooth(method="loess", aes(group=1), se = FALSE, size=2, alpha=0.5)+
+    xlim(c(0,max(results$mean.distance)))+
+    ylim(c(0,1))+
+    xlab(paste("Mean phylogenetic distance"))+
+    ylab(paste("Fraction of shared pathogens"))+
+    theme_basic()+
+    labs(size="Number of host-pathogen associations")+
+    theme(axis.text=element_text(size=16),
+          legend.text =element_text(colour="black", size=16),
+          legend.title=element_text(colour="black", size=18),
+          strip.text.x=element_text(colour="black", size=22),
+          axis.title=element_text(colour="black", size=22))
+  return(p)
+}
+metadata <- pathogen_vs_host_db
+d <- cophenetic_matrix
+
+results.orders.10 <- hostShiftingResultsOrder(type=c("Bacteria", "Virus"), min.rep=10)
+p.pathogen.sharing.orders.10 <- hostShiftingPlot(results.orders.10)+xlab("Mean phylogenetic distance between orders")
+
+results.orders.5 <- hostShiftingResultsOrder(type=c("Bacteria", "Virus"), min.rep=5)
+p.pathogen.sharing.orders.5 <- hostShiftingPlot(results.orders.5)
+
+results.species.10 <- hostShiftingResultsSpecies(type=c("Bacteria", "Virus"), min.rep=10)
+# plot, but exclude comparisons of species with themselves, and the outliers
+p.pathogen.sharing.species.10 <- hostShiftingPlot(results.species.10[which(results.species.10$mean.distance!=0 &
+                                                                             results.species.10$mean.distance<1.8),])
+```
+
+We also carry out a Mantel test for correlation of the two distance matrices. 
+
+```{r mantel_test_correlation_distace, cache=cachedata}
+mean.dist <- acast(species.1 ~ species.2, value.var = "mean.distance", data=results.species.10)
+perc.shared <- acast(species.1 ~ species.2, value.var = "perc.shared.unique", data=results.species.10)
+mantel.test(mean.dist, perc.shared)
+```
+
+We construct the right panel of the figure. We make a separate data frame for bacteria and for viruses, then combine these together and plot the results. 
+
+```{r Figure_distance_shared_pathogens_decay, cache=cachedata}
+host.orders <- table(metadata$HostOrder)
+min.rep.10 <- names(host.orders)[host.orders>10]
+hostShiftingPlotDataHuman <- function(type=c("Bacteria", "Virus"), reference.species="Homosapiens", host.orders = min.rep.10, title.string=""){
+  # Limit to only pathogens of interest (bacteria, viruses, or both)
+  metadata.type <- metadata[which(metadata$Type %in% type),]
+  # Get host orders, and keep only those with more than min.rep representatives
+  type.host.orders <- min.rep.10
+  # Get list of reference.species pathogens
+  reference.species.pathogens <- unique(metadata.type[which(metadata.type$HostSpeciesPHB==reference.species), "Species"])
+  # For each host order, return percentage of pathogens shared with humans vs. mean distance of host species from reference species
+  results <- matrix(nrow=0, ncol=3)
+  for (b in type.host.orders){
+    #  All pathogens in that host order, excluding the reference species
+    pathogens <- unique(metadata.type[which(metadata.type$HostOrder==b & metadata.type$HostSpeciesPHB!=reference.species),"Species"])
+    # Percentage of those pathogens that are shared with humans
+    perc.shared <- length(pathogens[pathogens %in% reference.species.pathogens])/length(pathogens)
+    # Mean of all host species in order from reference species. Note that we consider all species, 
+    # not just those that have a pathogen association of the right type
+    host.species <- as.character(metadata[which(metadata$HostOrder==b),"HostSpeciesPHB"])
+    mean.distance <- mean(d[host.species, reference.species])
+    # Add to results
+    results <- rbind(results, c(perc.shared, mean.distance, length(unique(host.species))))
+  }
+  # Naming of data frame, add names of host orders
+  results <- as.data.frame(results)
+  colnames(results) <- c("perc.shared", "mean.distance", "n.hosts")
+  results$host.order <- type.host.orders
+  # Correlation test
+  correlation <- cor.test(results$mean.distance, results$perc.shared, method = "spearman")
+  # Label for correlation statistics
+  corr.label <- data.frame(
+    mean.distance = 0,
+    perc.shared = 0.1, 
+    label = paste("Spearman's rho = ", myround(correlation$estimate, 3), 
+                  "\n p = ", myround(correlation$p.value, 3)),
+    host.order="",
+    n.hosts="NA*")
+  # Return results
+  return(results)
+}
+
+human.sharing.bacteria <- hostShiftingPlotDataHuman("Bacteria")
+human.sharing.bacteria$type <- "Bacteria"
+human.sharing.virus <- hostShiftingPlotDataHuman("Virus")
+human.sharing.virus$type <- "Virus"
+plot.df <- rbind(human.sharing.bacteria, human.sharing.virus)
+
+# The parameter starting values for the sigmoidal fit are from fitting the sigmoid the bacteria data only with nls:
+# fit <- nls(perc.shared ~ SSlogis(mean.distance, Asym, xmid, scal), data = human.sharing.bacteria)
+p.human.sharing <- ggplot(plot.df, aes(x=mean.distance, y=perc.shared))+
+  geom_point(aes(size=n.hosts, fill=type), colour="black", pch=21, alpha=0.5)+
+  xlim(c(0,max(plot.df$mean.distance)))+
+  geom_smooth(method="nls", aes(group=type, colour=type),size=2,   formula= y ~ Asym/(1+exp((xmid-x)/scal)), method.args = list(start=c(Asym=0.7, xmid=1.31, scal=-0.33)), se=FALSE)+
+  scale_fill_manual(values=c("black", "red"))+
+  scale_colour_manual(values=c("black", "red"))+
+  scale_size_continuous(range = c(2,10))+
+  ylim(c(0,1))+
+  labs(size="Number of\nhost-pathogen\nassociations", fill="Pathogen type", colour="Pathogen type")+
+  xlab(paste("Mean phylogenetic distance to Homo sapiens"))+
+  ylab(paste("Fraction of shared pathogens with Homo sapiens"))+
+  theme_basic()+
+  theme(axis.text=element_text(size=16),
+        legend.text =element_text(colour="black", size=16),
+        legend.title=element_text(colour="black", size=18),
+        strip.text.x=element_text(colour="black", size=22),
+        axis.title=element_text(colour="black", size=22))
+```
+
+We combine the left and right panels together to make a preliminary version of the figure. The paper version was produced manually from this preliminary version in [Inkscape](https://inkscape.org/), using animal silhouettes from [phylopic.org](https://phylopic.org).
+
+```{r Fig_host_shifting_plot, cache=cachedata}
+pdf("figures/Figure-6-pathogen-sharing.pdf", width=17, height=10)
+cowplot::plot_grid(p.pathogen.sharing.orders.10+ggtitle("(a)"), p.human.sharing+ggtitle("(b)"))
+dev.off()
+png("figures/Figure-6-pathogen-sharing.png", width=1700, height=1000, pointsize = 14)
+cowplot::plot_grid(p.pathogen.sharing.orders.10, p.human.sharing)
+dev.off()
+```
+
+It is useful to be able to match the points and names together, which can be done with the plot below. 
+
+```{r Fig_host_shifting_plot_match_names, cache=cachedata}
+ggplot(plot.df, aes(x=mean.distance, y=perc.shared))+
+  geom_text(aes(label=host.order, colour=type), nudge_x = 0,nudge_y=0, size=1, angle=45)+
+  stat_smooth(method="loess", aes(group=type, colour=type),size=2,  se = FALSE, formula = y ~ exp(x)/(exp(x)+1))+
+  xlim(c(0,max(plot.df$mean.distance)))+
+  scale_fill_manual(values=c("black", "red"))+
+  scale_colour_manual(values=c("black", "red"))+
+  scale_size_continuous(range = c(2,10))+
+  ylim(c(0,1))+
+  labs(size="Number of\nhost-pathogen\nassociations", fill="Pathogen type", colour="Pathogen type")+
+  xlab(paste("Mean phylogenetic distance to Homo sapiens"))+
+  ylab(paste("Fraction of shared pathogens with Homo sapiens"))+
+  theme_basic()+geom_point(aes(colour=type))+facet_wrap(~type)
+ggsave("figures/Figure-6-pathogen-sharing-right-panel-names.pdf")
+```
+
+
+# Supplementary Figures
+
+## Supplementary Figure 1
+
+We compare our mitochondrial gene phylogeny with the *cytb* phylogeny of Olival et al. 
+
+```{r tree_comparison_olival, cache=cachedata}
+olival.tree <- read.tree('data/olival_cytb_supertree.tree')
+# Convert tip labels
+olival.tree$tip.label <- gsub("_", "", olival.tree$tip.label)
+# Only consider shared species
+olival.tree.shared <- drop.tip(olival.tree, 
+                                              tip=olival.tree$tip.label[which(!olival.tree$tip.label %in% host_tree$tip.label)])
+olival.tree.cophenetic <- cophenetic(olival.tree.shared)
+this.study.tree.cophenetic <- d[rownames(olival.tree.cophenetic), rownames(olival.tree.cophenetic)]
+# Plot cophenetic distances
+tree.df <- data.frame(cbind(as.vector(olival.tree.cophenetic), as.vector(this.study.tree.cophenetic)))
+p.olival.cophenetic.comparison <- ggplot(tree.df, aes(X1, X2))+
+  geom_point(size=0.25, alpha=0.1)+
+  theme_basic()+
+  xlab("Cophenetic distance (Olival et al. 2017)")+
+  ylab("Cophenetic distance (this study)")+
+  geom_abline(linetype='dashed')+
+  stat_smooth(method="lm", colour="red")
+p.olival.cophenetic.comparison
+png("figures/Supplementary-Figure-1-Cophenetic-Tree-Comparison.png", width=800, height=1200)
+p.olival.cophenetic.comparison
+dev.off()
+```
+
+
+## Supplementary Figure 2
+
+Mean and maximum PHB are well-correlated for most pathogens. 
+
+```{r Supp_Fig_2, cache=cachedata}
+p.mean.max.phb <- ggplot(unique_pathogens, aes(x=PHB, y=PHB.max))+geom_point(aes(size=N.hosts, colour=Type))+theme_basic()+
+  facet_wrap(~Type)+
+  scale_color_manual(values=c("black", "red"))+
+  geom_abline(slope=1, intercept=0)
+p.mean.max.phb
+pdf("figures/Supplementary-Figure-2-PHB-correlation.pdf", width=12, height=8)
+p.mean.max.phb
+dev.off()
+```
+
+
+## Supplementary Figure 3
+
+Shows how PHB varies within bacterial families. 
+
+```{r Figure_PHB_by_pathogen_family, cache=cachedata}
+# Family
+min.abundance <- 20
+df.generalist.prop.family <- data.frame(bacteria.df %>% group_by(family) %>% summarise(prop.generalist=length(n.hosts[which(n.hosts!=1)])/length(n.hosts), species=length(n.hosts)))
+df.generalist.prop.family$family <- ordered(df.generalist.prop.family$family, levels=df.generalist.prop.family$family[order(df.generalist.prop.family$prop.generalist, decreasing=TRUE)])
+
+p.bacteria.family.generalist <- ggplot(df.generalist.prop.family[which(df.generalist.prop.family$species>min.abundance & df.generalist.prop.family$prop.generalist!=0),], aes(family, prop.generalist, size=species))+
+  geom_point()+
+  theme_basic()+
+  xlab("")+
+  ylab("Proportion of generalists")+
+  labs(size="Number\nof species")+
+  ylim(c(0,1))+
+  coord_flip()+
+  theme(legend.position = "none")+
+  ggtitle("(a) Proportion of generalists")+
+    theme(plot.margin=unit(c(1,0.5,1,1), "cm"))+
+  theme(legend.position = "none")
+
+
+# Get these top families
+top.families <- as.character(df.generalist.prop.family$family[which(df.generalist.prop.family$species>min.abundance)])
+plot.df <- bacteria.df[which(bacteria.df$family %in% top.families & bacteria.df$bacteria.phbs!=0),]
+shared.families <- unique(plot.df$family[which(plot.df$family %in% top.families)])
+plot.df$family <- ordered(plot.df$family, levels=levels(df.generalist.prop.family$family))
+
+p.bacteria.family.phb <- ggplot(plot.df, aes(family, bacteria.phbs))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_jitter(width=0.05, height=0, pch=21, fill='white', colour='black')+
+  theme_basic()+
+  xlab("")+
+  ylab("PHB")+
+  ylim(c(0,1))+
+  coord_flip()+
+  theme(axis.text.y=element_blank())+
+  ggtitle("(b) PHB of generalists")+
+    theme(plot.margin=unit(c(1,1,1,-0.5), "cm"))
+
+cowplot::plot_grid(p.bacteria.family.generalist, 
+             p.bacteria.family.phb, 
+             ncol=2)
+pdf("figures/Supplementary-Figure-3-bacterial-families.pdf", width=12, height=8)
+cowplot::plot_grid(p.bacteria.family.generalist, 
+             p.bacteria.family.phb, 
+             ncol=2)
+dev.off()
+```
+
+
+## Supplementary Figure 4
+
+The same approach as Supplementary Figure 3, but now for viral families 
+
+```{r Figure_taxonomic_family_virus, cache=cachedata}
+# Family
+min.abundance <- 20
+df.generalist.prop.family <- data.frame(virus.df %>% group_by(family) %>% summarise(prop.generalist=length(n.hosts[which(n.hosts!=1)])/length(n.hosts), species=length(n.hosts)))
+df.generalist.prop.family$family <- ordered(df.generalist.prop.family$family, levels=df.generalist.prop.family$family[order(df.generalist.prop.family$prop.generalist, decreasing=TRUE)])
+
+p.virus.family.generalist <- ggplot(df.generalist.prop.family[which(df.generalist.prop.family$species>min.abundance & df.generalist.prop.family$prop.generalist>0.05),], aes(family, prop.generalist, size=species))+
+  geom_point()+
+  theme_basic()+
+  xlab("")+
+  ylab("Proportion of generalists")+
+  labs(size="Number\nof species")+
+  ylim(c(0,1))+
+  coord_flip()+
+  ggtitle("(a) Proportion of generalists")+
+  theme(plot.margin=unit(c(1,0.5,1,1), "cm"))+
+  theme(legend.position = "none")
+
+# Get these top families
+top.families <- as.character(df.generalist.prop.family$family[which(df.generalist.prop.family$species>min.abundance)])
+plot.df <- virus.df[which(virus.df$family %in% top.families & virus.df$virus.phbs!=0),]
+shared.families <- unique(plot.df$family[which(plot.df$family %in% top.families)])
+plot.df$family <- ordered(plot.df$family, levels=levels(df.generalist.prop.family$family))
+
+# family overlap
+family.overlap <- unique(as.character(df.generalist.prop.family[which(df.generalist.prop.family$species>min.abundance & df.generalist.prop.family$prop.generalist!=0),"family"]))
+p.virus.family.phb <- ggplot(plot.df[which(plot.df$family %in% family.overlap),], aes(family, virus.phbs))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_jitter(width=0.05, height=0, pch=21, fill='white', colour='black')+
+  theme_basic()+
+  xlab("")+
+  ylab("PHB")+
+  coord_flip()+
+  theme(axis.text.y=element_blank())+
+  ggtitle("(b) PHB of generalists")+
+  theme(plot.margin=unit(c(1,1,1,-0.5), "cm"))
+
+cowplot::plot_grid(p.virus.family.generalist, 
+             p.virus.family.phb, 
+             ncol=2)
+pdf("figures/Supplementary-Figure-4-viral-families.pdf", width=12, height=8)
+cowplot::plot_grid(p.virus.family.generalist, 
+             p.virus.family.phb, 
+             ncol=2)
+dev.off()
+```
+## Supplementary Figure 5
+
+How do genome GC content and size vary in specialist vs. generalist pathogens?
+
+```{r Figure_genome_GC_size_specialist_generalist, cache=cachedata}
+bacteria.unique <- pathogen_vs_host_db[which(pathogen_vs_host_db$Type=="Bacteria" & !duplicated(pathogen_vs_host_db$Species)),]
+rownames(bacteria.unique) <- bacteria.unique$Species
+bacteria.unique$PHB <- sapply(bacteria.unique$Species, function(x) PHB(x, m=pathogen_vs_host_db))
+virus.unique <- pathogen_vs_host_db[which(pathogen_vs_host_db$Type=="Virus" & !duplicated(pathogen_vs_host_db$Species)),]
+virus.unique$PHB <- sapply(virus.unique$Species, function(x) PHB(x, m=pathogen_vs_host_db))
+
+bacteria.unique$Specialist <- ordered(ifelse(bacteria.unique$PHB>0, "Generalist", "Specialist"), 
+                                      levels=c("Specialist", "Generalist"))
+virus.unique$Specialist <- ordered(ifelse(virus.unique$PHB>0, "Generalist", "Specialist"), 
+                                   levels=c("Specialist", "Generalist"))
+
+p.bacteria.GC <- ggplot(bacteria.unique, aes(Specialist, Genome.GC, fill=Specialist))+
+  geom_violin()+
+  stat_summary(geom = "point",pch=1,  fun.y = "median", size=5)+
+  stat_summary(geom = "point", pch=2, fun.y = "mean", size=5)+
+  theme_basic()+ 
+  scale_fill_manual(values=c("#f0f0f0", "#636363"))+
+  ylim(c(20, 80))+
+  xlab("")+
+  ylab("GC content (%)")+
+  theme(legend.position="none")+
+  ggtitle("Bacteria")+
+  theme(plot.title=element_text(size=24, hjust=0.5))
+
+p.virus.GC <- ggplot(virus.unique, aes(Specialist, Genome.GC, fill=Specialist))+
+  geom_violin()+
+  stat_summary(geom = "point",pch=1,  fun.y = "median", size=5)+
+  stat_summary(geom = "point", pch=2, fun.y = "mean", size=5)+
+  theme_basic()+ 
+  scale_fill_manual(values=c("#fee0d2", "#de2d26"))+
+  ylim(c(20, 80))+
+  xlab("")+
+  ylab("GC content (%)")+
+  theme(legend.position="none")+
+  ggtitle("Viruses")+
+  theme(plot.title=element_text(size=24, hjust=0.5))
+
+
+p.bacteria.size <- ggplot(bacteria.unique, aes(Specialist, Genome.size, fill=Specialist))+
+  geom_violin()+
+  stat_summary(geom = "point",pch=1,  fun.y = "median", size=5)+
+  stat_summary(geom = "point", pch=2, fun.y = "mean", size=5)+
+  theme_basic()+ 
+  scale_fill_manual(values=c("#f0f0f0", "#636363"))+
+  scale_y_log10()+
+  ylab("Log(genome size in Mb)")+
+  xlab("")+
+  ylab("Log(genome size in Mb)")+
+  theme(legend.position="none")
+
+p.virus.size <- ggplot(virus.unique, aes(Specialist, Genome.size, fill=Specialist))+
+  geom_violin()+
+  stat_summary(geom = "point",pch=1,  fun.y = "median", size=5)+
+  stat_summary(geom = "point", pch=2, fun.y = "mean", size=5)+
+  theme_basic()+ 
+  scale_y_log10()+
+  scale_fill_manual(values=c("#fee0d2", "#de2d26"))+
+  xlab("")+
+  ylab("Log(genome size in Mb)")+
+  theme(legend.position="none")
+
+cowplot::plot_grid(p.bacteria.GC, p.virus.GC, p.bacteria.size, p.virus.size, ncol=2, widths=c(1,1))
+# Save figure
+pdf("figures/Supplementary-Figure-5-GC-content-genome-size.pdf", width=8, height=8)
+cowplot::plot_grid(p.bacteria.GC, p.virus.GC, p.bacteria.size, p.virus.size, ncol=2, widths=c(1,1))
+dev.off()
+```
+
+Effect of genome size of bacteria.
+
+```{r Bacteria_genome_size_test, cache=cachedata}
+bacteria.specialist.genome.sizes <- bacteria.unique$Genome.size[which(bacteria.unique$PHB==0)]
+bacteria.generalist.genome.sizes <- bacteria.unique$Genome.size[which(bacteria.unique$PHB!=0)]
+# Missing data - number of associations kept
+nrow(pathogen_vs_host_db[which(pathogen_vs_host_db$Species %in% rownames(bacteria.unique)[which(!is.na(bacteria.unique$Genome.size) & !is.na(bacteria.unique$Genome.GC))]),])
+
+table(is.na(bacteria.specialist.genome.sizes))
+table(is.na(bacteria.generalist.genome.sizes))
+wilcox.test(x = na.omit(bacteria.specialist.genome.sizes), 
+            y = na.omit(bacteria.generalist.genome.sizes))
+```
+
+
+## Supplementary Figure 6
+
+Plot of virus PHB for different genome types (RNA/DNA). We use the Baltimore classification (type of genome and method of classification).
+
+```{r Virus_genomic_material, cache=cachedata}
+options(warn=-1) # Turn off warnings
+# Virus genome type
+virus.df$genome.type <- ordered(virus.df$genome.type, levels=c("ssRNA-RT", "(-) ssRNA", "(+) ssRNA", "dsRNA", "dsDNA-RT", "dsDNA"))
+p.virus<- ggplot(virus.df[!is.na(virus.df$genome.type),], aes(genome.type, virus.phbs, colour=genome.type.rna.dna))+
+  geom_boxplot(outlier.shape=NA)+geom_jitter(height=0, width=0.25, alpha=0.8)+
+  theme_basic()+
+  xlab("")+
+  ylab("Mean PHB")+
+  scale_color_manual(values=c("#377eb8", "#4daf4a"))+
+  labs(colour="Genomic material")+
+  ylim(c(0,1))+
+  theme(axis.text=element_text(size=16),
+        legend.text =element_text(colour="black", size=16),
+        legend.title=element_text(colour="black", size=18),
+        strip.text.x=element_text(colour="black", size=22),
+        axis.title=element_text(colour="black", size=22))
+p.virus
+# Save figure
+pdf("figures/Supplementary-Figure-6-virus-genome-type.pdf", width=12, height=8)
+p.virus
+dev.off()
+```
+
+
+## Supplementary Figure 7
+
+We plot the effect of bacterial lifestyle on the proportion of specialists vs. generalists. 
+
+```{r Figure_bacterial_lifestyle, cache=cachedata}
+bacteria.df$gram <- as.character(bacteria.df$gram)
+bacteria.df$gram[which(is.na(bacteria.df$gram) | bacteria.df$gram %in% c("na", ""))] <- "Unknown"
+# Manually amend lactobacillus spp and 
+bacteria.df[which(bacteria.df$bacteria.names=="Lactobacillus spp"),"gram"] <- "Gram-positive"
+bacteria.df[which(bacteria.df$bacteria.names=="Segniliparus rugosus"),"gram"] <- "Gram-positive"
+
+gram.plot.df <- data.frame(table(bacteria.df$gram, bacteria.df$bacteria.phbs>0)/rowSums(table(bacteria.df$gram, bacteria.df$bacteria.phbs>0)) * 100)
+gram.plot.N.total.df <- data.frame(N=rowSums(table(bacteria.df$gram, bacteria.df$bacteria.phbs>0)), 
+                                   Var1=rownames(table(bacteria.df$gram, bacteria.df$bacteria.phbs>0)),
+                                   Freq=3)
+gram.plot <- ggplot(gram.plot.df[which(!gram.plot.df$Var1 %in% c("", "na")),], aes(Var1, Freq, fill=Var2))+
+  geom_bar(position="stack", stat="identity", colour="black")+
+  theme_basic()+
+  scale_fill_manual(values=c("#fee5d9", "#fcae91"), labels=c("Specialist", "Generalist"))+
+  guides(fill=FALSE)+
+  xlab("")+
+  ylab("Within-category percentage (%)")+
+  theme(legend.text=element_text(size=14))+
+  ggtitle("Gram stain")+
+  theme(plot.title=element_text(size=25, hjust=0.5))+
+  geom_label(data=gram.plot.N.total.df[which(!gram.plot.df$Var1 %in% c("", "na")),], aes(label=N), fill=NA, size=6)
+
+
+bacteria.df$motility <- as.character(bacteria.df$motility)
+bacteria.df$motility[which(is.na(bacteria.df$motility) | bacteria.df$motility %in% c("na", ""))] <- "Unknown"
+motile.plot.df <- data.frame(table(bacteria.df$motility, bacteria.df$bacteria.phbs>0)/rowSums(table(bacteria.df$motility, bacteria.df$bacteria.phbs>0))*100)
+motile.plot.N.total.df <- data.frame(N=rowSums(table(bacteria.df$motility, bacteria.df$bacteria.phbs>0)), 
+                                     Var1=rownames(table(bacteria.df$motility, bacteria.df$bacteria.phbs>0)),
+                                     Freq=5)
+motile.plot <- ggplot(motile.plot.df[which(!motile.plot.df$Var1 %in% c("", "na")),], aes(Var1, Freq, fill=Var2))+
+  geom_bar(position="stack", stat="identity", colour="black")+
+  theme_basic()+
+  scale_fill_manual(values=c("#fee5d9", "#fcae91"), labels=c("Specialist", "Generalist"))+
+  guides(fill=FALSE)+
+  xlab("")+
+  ylab("Within-category percentage (%)")+
+  theme(legend.text=element_text(size=14))+
+  ggtitle("Motility")+
+  theme(plot.title=element_text(size=25, hjust=0.5))+
+  geom_label(data=motile.plot.N.total.df[which(!motile.plot.df$Var1 %in% c("", "na")),], aes(label=N), fill=NA, size=6)
+
+bacteria.df$cell <- as.character(bacteria.df$cell)
+bacteria.df$cell[which(is.na(bacteria.df$cell))] <- "Unknown"
+cell.plot.df <- data.frame(table(bacteria.df$cell, bacteria.df$bacteria.phbs>0)/rowSums(table(bacteria.df$cell, bacteria.df$bacteria.phbs>0)) * 100)
+cell.plot.N.total.df <- data.frame(N=rowSums(table(bacteria.df$cell, bacteria.df$bacteria.phbs>0)), 
+                                   Var1=rownames(table(bacteria.df$cell, bacteria.df$bacteria.phbs>0)),
+                                   Freq=5)
+cell.plot <- ggplot(cell.plot.df[which(!cell.plot.df$Var1 %in% c("", "na")),], aes(Var1, Freq, fill=Var2))+
+  geom_bar(position="stack", stat="identity", colour="black")+
+  theme_basic()+
+  scale_fill_manual(values=c("#fee5d9", "#fcae91"), labels=c("Specialist", "Generalist"))+
+  guides(fill=FALSE)+
+  xlab("")+
+  ylab("Within-category percentage (%)")+
+  theme(legend.text=element_text(size=14))+
+  ggtitle("Cellular lifestyle")+
+  theme(plot.title=element_text(size=25, hjust=0.5))+
+  geom_label(data=cell.plot.N.total.df, aes(label=N), fill=NA, size=6)
+
+bacteria.df$oxygen <- as.character(bacteria.df$oxygen)
+# Manually correct Lactobacilli
+bacteria.df$oxygen[which(bacteria.df$bacteria.names=="Lactobacillus spp")] <- "Facultatively anaerobic"
+oxygen.plot.df <- data.frame(table(bacteria.df$oxygen, bacteria.df$bacteria.phbs>0)/rowSums(table(bacteria.df$oxygen, bacteria.df$bacteria.phbs>0)) * 100)
+oxygen.plot.N.total.df <- data.frame(N=rowSums(table(bacteria.df$oxygen, bacteria.df$bacteria.phbs>0)), 
+                                     Var1=rownames(table(bacteria.df$oxygen, bacteria.df$bacteria.phbs>0)),
+                                     Freq=5)
+oxygen.plot <- ggplot(oxygen.plot.df[which(!oxygen.plot.df$Var1 %in% c( "Capnophilic")),], aes(Var1, Freq, fill=Var2))+
+  geom_bar(position="stack", stat="identity", colour="black")+
+  theme_basic()+
+  scale_fill_manual(values=c("#fee5d9", "#fcae91"), labels=c("Specialist", "Generalist"))+
+  guides(fill=FALSE)+
+  xlab("")+
+  ylab("Within-category percentage (%)")+
+  theme(legend.text=element_text(size=14))+
+  ggtitle("Oxygen requirements")+
+  theme(plot.title=element_text(size=25, hjust=0.5))+
+  geom_label(data=oxygen.plot.N.total.df[which(!oxygen.plot.N.total.df$Var1 %in% c( "Capnophilic")),], aes(label=N), fill=NA, size=6)
+
+bacteria.df$spore <- as.character(bacteria.df$spore)
+bacteria.df$spore[which(bacteria.df$spore %in% c("na", "") | is.na(bacteria.df$spore))] <- "Unknown"
+bacteria.df$spore[which(bacteria.df$spore=="Yes")] <- "Spore-forming"
+bacteria.df$spore[which(bacteria.df$spore=="No")] <- "Non-spore-forming"
+
+spore.plot.df <- data.frame(table(bacteria.df$spore, bacteria.df$bacteria.phbs>0)/rowSums(table(bacteria.df$spore, bacteria.df$bacteria.phbs>0)) * 100)
+spore.plot.N.total.df <- data.frame(N=rowSums(table(bacteria.df$spore, bacteria.df$bacteria.phbs>0)), 
+                                    Var1=rownames(table(bacteria.df$spore, bacteria.df$bacteria.phbs>0)),
+                                    Freq=5)
+spore.plot <- ggplot(spore.plot.df[which(!spore.plot.df$Var1 %in% c("", "na")),], aes(Var1, Freq, fill=Var2))+
+  geom_bar(position="stack", stat="identity", colour="black")+
+  theme_basic()+
+  scale_fill_manual(values=c("#fee5d9", "#fcae91"), labels=c("Specialist", "Generalist"))+
+  guides(fill=FALSE)+
+  xlab("")+
+  ylab("Within-category percentage (%)")+
+  theme(legend.text=element_text(size=14))+
+  ggtitle("Spore formation")+
+  theme(plot.title=element_text(size=25, hjust=0.5))+
+  geom_label(data=spore.plot.N.total.df, aes(label=N), fill=NA, size=6)
+
+cowplot::plot_grid(cell.plot, motile.plot, oxygen.plot, spore.plot, gram.plot, widths=c(4, 3), ncol=2)
+# Save figure
+pdf("figures/Supplementary-Figure-7-bacterial-lifestyle.pdf", width=14, height=18)
+cowplot::plot_grid(cell.plot, motile.plot, oxygen.plot, spore.plot, gram.plot, widths=c(4, 3), ncol=2)
+dev.off()
+```
+
+We now consider modelling the effect of motility and cellular behaviour together. No linear models show anything interesting. 
+
+
+
+```{r Tables_bacterial_lifestyle, cache=cachedata}
+# Motility
+motility.table <- table(bacteria.df$motility, bacteria.df$bacteria.phbs>0)
+motility.table <- motility.table[c("Motile", "Non-motile"),]
+motility.table/rowSums(motility.table)
+chisq.test(motility.table)
+require(knitr)
+kable(motility.table)
+# Cellular
+cellular.table <- table(bacteria.df$cell, bacteria.df$bacteria.phbs>0)
+cellular.table <- cellular.table[as.character(unique(bacteria.df$cell))[1:3],]
+cellular.table
+
+chisq.test(cellular.table)
+kable(cellular.table)
+# Oxygen: consider only aerobic and anerobic
+oxygen.table <- table(bacteria.df$oxygen, bacteria.df$bacteria.phbs>0)
+oxygen.table <- oxygen.table[1:2,]
+chisq.test(oxygen.table)
+kable(oxygen.table)
+
+# And consider facultatively anaerobic
+oxygen.table <- table(bacteria.df$oxygen, bacteria.df$bacteria.phbs>0)
+oxygen.table <- oxygen.table[c("Aerobic", "Anaerobic", "Facultatively anaerobic"),]
+chisq.test(oxygen.table)
+
+# Gram
+gram.table <- table(bacteria.df$gram, bacteria.df$bacteria.phbs>0)
+gram.table <- gram.table[c("Gram-negative", "Gram-positive", "Gram-variable", "Lack cell wall"),]
+kable(gram.table)
+```
+
+
+
+
+# Tables
+
+Tables in manuscript, including some additional tables. 
+
+
+## Table 1
+
+Table 1 is a review of previous similar studies from the literature, so has no associated code. 
+
+## Table 2
+
+Shows the niche and specificity of pathogens. According to our definitions, a *specialist* pathogen infects only a single host, a *generalist* more than one. Generalists are categorised according to whether their hosts are within the same family (e.g. Bovidae), order (e.g. Artiodactyla), or across orders. Percentages are shown in the manuscript but are not given here. 
+
+```{r Table_niche_specificity, cache=cachedata}
+options(warn=-1)
+# NICHE
+unique.pathogen.names <- unique_pathogens$Species
+unique.pathogen.types <- unique_pathogens$Type
+unique_pathogens$N.non.human.hosts <- as.numeric(sapply(unique.pathogen.names, function(x) nrow(pathogen_vs_host_db_no_humans[which(pathogen_vs_host_db_no_humans$Species==x),])))
+unique_pathogens$human.host <- as.numeric(sapply(unique.pathogen.names, function(x) nrow(pathogen_vs_host_db[which(pathogen_vs_host_db$Species==x & pathogen_vs_host_db$HostSpeciesPHB=="Homosapiens"),])))
+unique_pathogens$niche <- ifelse(unique_pathogens$human.host==1 & unique_pathogens$N.non.human.hosts==0, 
+                                 "Human-only",
+                                 ifelse(unique_pathogens$human.host==0 & unique_pathogens$N.non.human.hosts!=0,
+                                        "Animal-only",
+                                        ifelse(unique_pathogens$human.host==1 & unique_pathogens$N.non.human.hosts!=0,
+                                               "Zoonotic", "Not classified")))
+kable(table(unique_pathogens$niche, unique_pathogens$Type))
+
+# SPECIFICITY
+unique_pathogens$specificity <- ifelse(unique_pathogens$N.hosts>1,
+                                       "Generalist",
+                                       ifelse(unique_pathogens$N.non.human.hosts==1 & unique_pathogens$human.host==0,
+                                              "Animal-only specialist",
+                                              ifelse(unique_pathogens$N.non.human.hosts==0 & unique_pathogens$human.host==1,
+                                                     "Human-only specialist", "Not classified")))
+all_identical <- function(x) {
+  if (length(x) == 1L) {
+    warning("'x' has a length of only 1")
+    return(TRUE)
+  } else if (length(x) == 0L) {
+    warning("'x' has a length of 0")
+    return(logical(0))
+  } else {
+    TF <- vapply(1:(length(x)-1),
+                 function(n) identical(x[[n]], x[[n+1]]),
+                 logical(1))
+    if (all(TF)) TRUE else FALSE
+  }
+}
+within.family <- sapply(unique.pathogen.names, function(x) all_identical(pathogen_vs_host_db[which(pathogen_vs_host_db$Species==x),"HostFamily"]))
+within.order <- sapply(unique.pathogen.names, function(x) all_identical(pathogen_vs_host_db[which(pathogen_vs_host_db$Species==x),"HostOrder"]))
+within.group <- sapply(unique.pathogen.names, function(x) all_identical(pathogen_vs_host_db[which(pathogen_vs_host_db$Species==x),"HostGroup"]))
+
+unique_pathogens$generalist.narrow.broad <- ifelse(unique_pathogens$N.hosts==1, "Specialist", 
+                                                   ifelse(within.family==TRUE, 
+                                                          "Within-family", 
+                                                          ifelse(within.order==TRUE, 
+                                                                 "Within-order", 
+                                                                 ifelse(within.family==FALSE & within.order==FALSE & unique_pathogens$N.hosts>1, "Generalist across orders", "Not classified"))))
+# SPECIALIST
+kable(table(unique_pathogens$specificity, unique_pathogens$Type))
+# GENERALIST NARROW-BROAD
+kable(table(unique_pathogens$generalist.narrow.broad, unique_pathogens$Type))
+```
+
+
+## Table 3
+
+This is a summary of the best-fit GAMs (see `intermediates/*rds') for host traits which predict viral/bacterial richness (Figure 4) and pathogen traits which predict zoonotic potential (Figure 5).
+
+
+## Supplementary Table 1
+
+Vector-borne pathogens are more likely to be generalists and have a higher median PHB. The below code contains the chi-squared tests mentioned in the manuscript. Supplementary Table 1 is produced from these results, removing those pathogens for which data is not available.  
+
+```{r vector_borne, cache=cachedata}
+# Virus
+table(virus.df$vector.borne)
+wilcox.test(virus.df$virus.phbs[which(virus.df$vector.borne=="Yes")], virus.df$virus.phbs[which(virus.df$vector.borne=="No")])
+# Vector-borne
+quantile(virus.df$virus.phbs[which(virus.df$vector.borne=="Yes")])
+# Not vector-borne
+quantile(virus.df$virus.phbs[which(virus.df$vector.borne=="No")])
+# Bacteria
+table(bacteria.df$vector.borne)
+wilcox.test(bacteria.df$bacteria.phbs[which(bacteria.df$vector.borne=="Yes")], bacteria.df$bacteria.phbs[which(bacteria.df$vector.borne=="No")])
+# Vector-borne
+quantile(bacteria.df$bacteria.phbs[which(bacteria.df$vector.borne=="Yes")])
+# Not vector-borne
+quantile(bacteria.df$bacteria.phbs[which(bacteria.df$vector.borne=="No")])
+```
+
+Consider generalist/specialist proportion. 
+
+```{r vector_borne_specialist, cache=cachedata}
+# Virus
+virus.vector.table <- table(virus.df$vector.borne, virus.df$virus.phbs>0)
+virus.vector.table <- virus.vector.table[c("No", "Yes"),]
+chisq.test(virus.vector.table)
+
+# Bacteria
+bacteria.vector.table <- table(bacteria.df$vector.borne, bacteria.df$bacteria.phbs>0)
+bacteria.vector.table <- bacteria.vector.table[c("No", "Yes"),]
+chisq.test(bacteria.vector.table)
+```
+
+
+## Supplementary Table 2
+
+Viruses with an RNA genome and larger genome size have a greater host range. Having an RNA genome and a larger genome were both significantly associated with greater mean PHB (p<0.001 for both variables) with a non-significant interaction between them (p=0.36). 
+
+```{r LM_virus_genome, cache=cachedata}
+# Interaction model
+virus.df.model <- virus.df[which(virus.df$genome.size!=""),]
+
+# Interaction
+combined.model <- lm(virus.phbs ~ genome.type.rna.dna*genome.size, data=virus.df.model)
+summary(combined.model)
+```
+
+The following table is not shown in the main text, but it is interesting to note that genome size is not significantly associated with greater PHB in a univariate model. 
+
+```{r LM_virus_genome_univariate, cache=cachedata}
+# Interaction
+univariate.size.model <- lm(virus.phbs ~ genome.size, data=virus.df.model)
+summary(univariate.size.model)
+```
+
+## Supplementary Table 3
+
+Bacterial motility and cellular lifestyle are not associated with greater host range. Combining motility and cellular proliferation in a linear model with suggests that neither variable is associated with greater mean PHB. 
+
+```{r LM_bacterial_lifestyle, cache=cachedata}
+bacteria.df.model <- bacteria.df[which(bacteria.df$cell %in% c("Extracellular", "Facultative intracellular", "Obligate intracellular") & 
+                                         bacteria.df$motility %in% c("Motile", "Non-motile")),]
+model <- lm(bacteria.phbs ~ cell + motility, data=bacteria.df.model)
+summary(model)
+```
+
+Again, univariate linear models and a linear model with an interaction term give the same conclusion. 
+
+**Cell lifestyle**
+
+```{r LM_bacterial_lifestyle_univariate, cache=cachedata}
+cell.model <- lm(bacteria.phbs ~ cell, data=bacteria.df.model)
+summary(cell.model)
+```
+
+**Motility**
+
+```{r LM_bacterial_lifestyle_univariate_motility, cache=cachedata}
+motility.model <- lm(bacteria.phbs ~ motility, data=bacteria.df.model)
+summary(motility.model)
+```
+
+**Combined model with interaction term**
+
+```{r LM_bacterial_lifestyle_interaction, cache=cachedata}
+interaction.model <- lm(bacteria.phbs ~ cell*motility, data=bacteria.df.model)
+summary(interaction.model)
+```
+
