@@ -1,6 +1,11 @@
 # The phylogenetic range of bacterial and viral pathogens of vertebrates
 
+![alt text][header]
+
+[header]: data/pathogen-host-range-header-image.png
+
 **Associated preprint**: *The phylogenetic range of bacterial and viral pathogens of vertebrates*
+
 doi: https://doi.org/10.1101/670315
 
 **Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux
