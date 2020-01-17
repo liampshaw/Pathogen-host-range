@@ -1,3 +1,39 @@
-A list of the PhyloPic IDs of all silhouettes used:
+A list of the PhyloPic IDs of all silhouettes used.
+URL to access <image-ID> is http://www.phylopic.org/image/<image-ID>
 
+Thanks to all creators!
 
+Public domain:
+Chiroptera 18bfd2fc-f184-4c3a-b511-796aafcc70f6
+Cingulata 5d59b5ce-c1dd-40f6-b295-8d2629b9775e
+Peramelemorphia 8d463089-2dec-4ddf-9064-8cd021c4e986
+Primates 2d078b25-e6a0-4beb-a5d3-5d6f16be8ebf
+Scandentia 88a07585-846a-405d-9195-c15c010e7443
+Human 9fae30cd-fb59-4a81-a39c-e1826a35f612
+
+Created by R. Groom:
+Carnivora 76352962-1eeb-4197-acdd-e3c7eeab839d
+Rodentia 726683a1-78ed-4371-9c10-c220b8716c54
+
+Created by S. Werning:
+Didelphimorphia 91324e57-b3f1-42e0-abe3-43e5bc8aa4c6
+Pilosa 925fa570-10d9-4319-bd8a-e64ad7987900
+Lagomorpha dea688b6-9168-4e79-a106-366888148eb1
+Diprotodontia 8a06d489-024f-4505-8ccb-f86e84e00e75
+
+Created by C. Rebler:
+Eulipotyphlya f83c6893-f0ed-4ec4-b558-aa774c5c9b5b
+
+Created by J. A. Venter, H. H. T. Prins, D. A. Balfour & R. Slotow and vectorized by T. M. Keesey:
+Perissodactyla 623da06a-1857-43a2-9d1b-8a29f5f378cf
+
+Created by T. M. Keesey:
+Probscidea 7c9ab182-175d-4f02-96d0-09c1e5212bff
+
+Created by Zimices:
+Cetartiodactyla 7833503a-b14c-4894-8cfe-653b481232f9
+
+Created by Liftarn:
+Falcon 6cebf754-cb71-448d-a5bb-947157205264
+
+Human 9fae30cd-fb59-4a81-a39c-e1826a35f612 
