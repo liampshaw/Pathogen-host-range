@@ -1,7 +1,7 @@
 # The phylogenetic range of bacterial and viral pathogens of vertebrates
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3823900.svg)](https://doi.org/10.5281/zenodo.3823900)
 
 **Associated paper**: The phylogenetic range of bacterial and viral pathogens of vertebrates, *Molecular Ecology* (2020)  
 **doi**: [10.1111/mec.15463](https://doi.org/10.1111/mec.15463)  
