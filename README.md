@@ -3,16 +3,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
+**Associated paper**: The phylogenetic range of bacterial and viral pathogens of vertebrates, *Molecular Ecology* (2020)  
+**doi**: [10.1111/mec.15463](https://doi.org/10.1111/mec.15463)  
+
+**Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux (\* co-first authors)
 ![alt text][header]
 
 [header]: data/pathogen-host-range-header-image.png
-
-**Associated paper**: The phylogenetic range of bacterial and viral pathogens of vertebrates, *Molecular Ecology* (2020)
-
-**doi**: [10.1111/mec.15463](https://doi.org/10.1111/mec.15463)  
-**preprint doi**: https://doi.org/10.1101/670315
-
-**Authors**: Liam P. Shaw\*, Alethea Wang\*, David Dylus, Magda Meier, Grega Pogacnik, Christophe Dessimoz, Francois Balloux (\* co-first authors)
 
 This repository contains code to reproduce all figures and analyses in the associated paper analysing the host range of pathogen species. This is bundled together in the Rmarkdown notebook (Supplementary Text 1 of the manuscript). It also contains several data files. The image above is a schematic for the manual literature review used to construct the database of host-pathogen associations. For more information on the dataset collection methods and analysis, please see the paper. 
 
