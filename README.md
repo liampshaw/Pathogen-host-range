@@ -23,3 +23,5 @@ Unless otherwise stated, data related to viruses is plotted in <span style="colo
 * Code repository: https://github.com/ecohealthalliance/HP3
 
 This mainly applies to several scripts in the `scripts' directory relating to the fitting and plotting of generalized additive models (GAMs) -- more information is included where appropriate. All code here is also made available under the MIT License. 
+
+This repository is configured to be indexed by [Global Biotic Interactions](https://globalbioticinteractions.org) (GloBI, https://globalbioticinteractions.org).
