@@ -1,0 +1,203 @@
+{
+  "@context" : [ "http://www.w3.org/ns/csvw", {
+    "@language" : "en"
+  } ],
+  "rdfs:comment" : [ "inspired by https://www.w3.org/TR/2015/REC-tabular-data-model-20151217/" ],
+  "url" : "https://github.com/liampshaw/Pathogen-host-range/raw/master/data/PathogenVsHostDB-2019-05-30.csv",
+  "citation" : "Shaw, LP, Wang, AD, Dylus, D, et al. The phylogenetic range of bacterial and viral pathogens of vertebrates. Mol Ecol. 2020; 29: 3361– 3379. https://doi.org/10.1111/mec.15463",
+  "delimiter" : ",",
+  "headerRowCount" : 1,
+  "null" : [ "", "NA" ],
+  "interactionTypeName" : "pathogenOf",
+  "interactionTypeId" : "http://purl.obolibrary.org/obo/RO_0002556",
+  "tableSchema" : {
+    "columns" : [ {
+      "name" : "",
+      "titles" : "",
+      "datatype" : "string"
+    }, {
+      "name" : "Type",
+      "titles" : "Type",
+      "datatype" : "string"
+    }, {
+      "name" : "sourceTaxonPhylum",
+      "titles" : "Phylum",
+      "datatype" : "string"
+    }, {
+      "name" : "sourceTaxonClass",
+      "titles" : "Class",
+      "datatype" : "string"
+    }, {
+      "name" : "sourceTaxonOrder",
+      "titles" : "Order",
+      "datatype" : "string"
+    }, {
+      "name" : "sourceTaxonFamily",
+      "titles" : "Family",
+      "datatype" : "string"
+    }, {
+      "name" : "sourceGenusName",
+      "titles" : "Genus",
+      "datatype" : "string"
+    }, {
+      "name" : "sourceTaxonSpecies",
+      "titles" : "Species",
+      "datatype" : "string"
+    }, {
+      "name" : "Human",
+      "titles" : "Human",
+      "datatype" : "string"
+    }, {
+      "name" : "Zoonotic",
+      "titles" : "Zoonotic",
+      "datatype" : "string"
+    }, {
+      "name" : "Domestic",
+      "titles" : "Domestic",
+      "datatype" : "string"
+    }, {
+      "name" : "Wildlife",
+      "titles" : "Wildlife",
+      "datatype" : "string"
+    }, {
+      "name" : "HostGroup",
+      "titles" : "HostGroup",
+      "datatype" : "string"
+    }, {
+      "name" : "targetTaxonOrder",
+      "titles" : "HostOrder",
+      "datatype" : "string"
+    }, {
+      "name" : "targetTaxonFamily",
+      "titles" : "HostFamily",
+      "datatype" : "string"
+    }, {
+      "name" : "targetTaxonSpecies",
+      "titles" : "HostSpecies",
+      "datatype" : "string"
+    }, {
+      "name" : "targetCommonName",
+      "titles" : "HostName",
+      "datatype" : "string"
+    }, {
+      "name" : "Association",
+      "titles" : "Association",
+      "datatype" : "string"
+    }, {
+      "name" : "Method",
+      "titles" : "Method",
+      "datatype" : "string"
+    }, {
+      "name" : "referenceCitation",
+      "titles" : "Reference",
+      "datatype" : "string"
+    }, {
+      "name" : "referenceUrl",
+      "titles" : "PMID",
+      "datatype": {
+          "valueUrl" : "https://www.ncbi.nlm.nih.gov/pubmed/{referenceUrl}",
+          "base" :"string"
+      }
+    }, {
+      "name" : "Additional",
+      "titles" : "Additional",
+      "datatype" : "string"
+    }, {
+      "name" : "Synonym",
+      "titles" : "Synonym",
+      "datatype" : "string"
+    }, {
+      "name" : "Disease",
+      "titles" : "Disease",
+      "datatype" : "string"
+    }, {
+      "name" : "Taylor",
+      "titles" : "Taylor",
+      "datatype" : "string"
+    }, {
+      "name" : "Emerging",
+      "titles" : "Emerging",
+      "datatype" : "string"
+    }, {
+      "name" : "Emerging.Source",
+      "titles" : "Emerging.Source",
+      "datatype" : "string"
+    }, {
+      "name" : "VectorBorne",
+      "titles" : "VectorBorne",
+      "datatype" : "string"
+    }, {
+      "name" : "GramStain",
+      "titles" : "GramStain",
+      "datatype" : "string"
+    }, {
+      "name" : "Motility",
+      "titles" : "Motility",
+      "datatype" : "string"
+    }, {
+      "name" : "Spore",
+      "titles" : "Spore",
+      "datatype" : "string"
+    }, {
+      "name" : "Oxygen",
+      "titles" : "Oxygen",
+      "datatype" : "string"
+    }, {
+      "name" : "Cell",
+      "titles" : "Cell",
+      "datatype" : "string"
+    }, {
+      "name" : "Infection",
+      "titles" : "Infection",
+      "datatype" : "string"
+    }, {
+      "name" : "Abbreviation",
+      "titles" : "Abbreviation",
+      "datatype" : "string"
+    }, {
+      "name" : "Strain",
+      "titles" : "Strain",
+      "datatype" : "string"
+    }, {
+      "name" : "Genome",
+      "titles" : "Genome",
+      "datatype" : "string"
+    }, {
+      "name" : "Gsize",
+      "titles" : "Gsize",
+      "datatype" : "string"
+    }, {
+      "name" : "ProteinCount",
+      "titles" : "ProteinCount",
+      "datatype" : "string"
+    }, {
+      "name" : "PercentGC",
+      "titles" : "PercentGC",
+      "datatype" : "string"
+    }, {
+      "name" : "HostSpeciesPHB",
+      "titles" : "HostSpeciesPHB",
+      "datatype" : "string"
+    }, {
+      "name" : "HostSpecies.new",
+      "titles" : "HostSpecies.new",
+      "datatype" : "string"
+    }, {
+      "name" : "N.genomes",
+      "titles" : "N.genomes",
+      "datatype" : "string"
+    }, {
+      "name" : "Genome.size",
+      "titles" : "Genome.size",
+      "datatype" : "string"
+    }, {
+      "name" : "Genome.GC",
+      "titles" : "Genome.GC",
+      "datatype" : "string"
+    }, {
+      "name" : "Genome.genes",
+      "titles" : "Genome.genes",
+      "datatype" : "string"
+    } ]
+  }
+}
